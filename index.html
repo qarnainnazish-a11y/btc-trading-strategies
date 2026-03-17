@@ -353,13 +353,17 @@
       const first = priceHistory[0];
       const changePct = ((last - first) / first) * 100;
 
-      // Scalping (few minutes)
-      if (changePct < -0.3 && changePct > -1.5) {
-        scalpHintEl.textContent = "Scalping: Price thoda niche aaya hai, chhota BUY scalp 5–10 min ke liye socha ja sakta hai.";
-      } else if (changePct > 0.3 && changePct < 1.5) {
-        scalpHintEl.textContent = "Scalping: Price upar ja raha hai, sirf aggressive SELL scalp high risk hai.";
+      // Scalping (1–10 min) - more aggressive
+      if (changePct <= -0.2 && changePct > -1.2) {
+        scalpHintEl.textContent = "Scalping: Abhi BUY scalp try kar sakte ho 5–10 min ke liye (small dip pickup).";
+      } else if (changePct < -1.2) {
+        scalpHintEl.textContent = "Scalping: Strong dump – sirf high-risk BUY scalp, tight stop loss zaroori.";
+      } else if (changePct >= 0.2 && changePct < 1.2) {
+        scalpHintEl.textContent = "Scalping: Abhi SHORT scalp try kar sakte ho 5–10 min ke liye (small pump fade).";
+      } else if (changePct >= 1.2) {
+        scalpHintEl.textContent = "Scalping: Strong pump – aggressive SHORT scalp possible lekin bohot risky.";
       } else {
-        scalpHintEl.textContent = "Scalping: No clear edge, sirf dekhte raho.";
+        scalpHintEl.textContent = "Scalping: Bilkul flat move, entry force mat karo.";
       }
 
       // Short-term (hours)
@@ -384,7 +388,7 @@
     async function fetchPrice() {
       try {
         const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT");
-        const data = await res.json(); /* Binance public price API se BTCUSDT price lena documented pattern jaisa hai. [web:81] */
+        const data = await res.json(); /* BTC price Binance public ticker se lena is pattern me documented hai. [web:81] */
         const price = parseFloat(data.price);
         if (!isNaN(price)) {
           currentPrice = price;
