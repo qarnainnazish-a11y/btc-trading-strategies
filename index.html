@@ -334,7 +334,7 @@
       left.innerHTML = `<span class="${side === "buy" ? "order-side-buy" : "order-side-sell"}">${side.toUpperCase()}</span> · ${qty.toFixed(6)} BTC`;
 
       const right = document.createElement("span");
-      right.textContent = "@ " + formatPrice(price) + " USDT";
+      right.textContent = "@ " + formatPrice(price) + " USD";
 
       row.appendChild(left);
       row.appendChild(right);
@@ -368,4 +368,88 @@
 
       // Short-term (hours)
       if (changePct > 1.5) {
-        shortHintEl.textContent = "Short-term: Strong up move;
+        shortHintEl.textContent = "Short-term: Strong up move; abhi BUY late ho sakta hai, pullback 4–12 hours ke liye wait karo.";
+      } else if (changePct < -1.5) {
+        shortHintEl.textContent = "Short-term: Dump hua hai; oversold bounce ke liye chhota BUY swing socha ja sakta hai.";
+      } else {
+        shortHintEl.textContent = "Short-term: Sideways zone; range trade ya no-trade zone.";
+      }
+
+      // Long-term (2+ din)
+      if (changePct > 3) {
+        longHintEl.textContent = "Long-term (2+ din): Structure bullish lag raha hai; abhi fresh SHORT risky ho sakta hai.";
+      } else if (changePct < -3) {
+        longHintEl.textContent = "Long-term (2+ din): Deep correction; gradual BUY / DCA socho, heavy SHORT avoid karo.";
+      } else {
+        longHintEl.textContent = "Long-term (2+ din): Normal move; hold / wait, koi strong signal nahi.";
+      }
+    }
+
+    async function fetchPrice() {
+      try {
+        const res = await fetch("https://blockchain.info/ticker?cors=true");
+        const data = await res.json(); // BTC-USD rates. [web:99]
+        const price = parseFloat(data.USD.last);
+        if (!isNaN(price)) {
+          currentPrice = price;
+          priceEl.textContent = "$ " + formatPrice(price);
+          const now = new Date();
+          priceUpdatedEl.textContent = "Last update: " + now.toLocaleTimeString();
+          renderBalances();
+
+          priceHistory.push(currentPrice);
+          if (priceHistory.length > 20) priceHistory.shift();
+
+          updateHints();
+        }
+      } catch (e) {
+        priceUpdatedEl.textContent = "Failed to fetch price.";
+      }
+    }
+
+    function placeOrder(side) {
+      orderMessageEl.textContent = "";
+      if (!currentPrice) {
+        orderMessageEl.textContent = "Price not loaded yet.";
+        return;
+      }
+      const qty = parseFloat(qtyInput.value);
+      if (!qty || qty <= 0) {
+        orderMessageEl.textContent = "Enter a valid BTC quantity.";
+        return;
+      }
+      const usdCost = qty * currentPrice;
+      const inrCost = usdCost * INR_PER_USDT;
+
+      if (side === "buy") {
+        if (inrCost > inrBalance) {
+          orderMessageEl.textContent = "Not enough INR balance.";
+          return;
+        }
+        inrBalance -= inrCost;
+        btcBalance += qty;
+        orderMessageEl.textContent = `BUY ${qty.toFixed(6)} BTC filled.`;
+      } else {
+        if (qty > btcBalance) {
+          orderMessageEl.textContent = "Not enough BTC balance.";
+          return;
+        }
+        inrBalance += inrCost;
+        btcBalance -= qty;
+        orderMessageEl.textContent = `SELL ${qty.toFixed(6)} BTC filled.`;
+      }
+
+      addOrderRow(side, qty, currentPrice);
+      renderBalances();
+      qtyInput.value = "";
+    }
+
+    buyBtn.addEventListener("click", () => placeOrder("buy"));
+    sellBtn.addEventListener("click", () => placeOrder("sell"));
+
+    renderBalances();
+    fetchPrice();
+    setInterval(fetchPrice, 15000);
+  </script>
+</body>
+</html>
