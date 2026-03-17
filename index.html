@@ -213,6 +213,14 @@
         </div>
         <div class="muted" id="order-message" style="margin-top:6px; min-height:18px;"></div>
       </div>
+
+      <!-- Strategy hints block -->
+      <div style="margin-top: 16px; border-top: 1px solid #1f2937; padding-top: 10px;">
+        <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Strategy Hints</h2>
+        <div class="muted" id="scalp-hint">Scalping: waiting for data…</div>
+        <div class="muted" id="short-hint">Short-term: waiting for data…</div>
+        <div class="muted" id="long-hint">Long-term: waiting for data…</div>
+      </div>
     </section>
 
     <!-- Right: Balance + orders -->
@@ -271,7 +279,7 @@
     });
   </script>
 
-  <!-- Paper trading logic -->
+  <!-- Paper trading + hints logic -->
   <script>
     let inrBalance = 100000;
     let btcBalance = 0;
@@ -288,6 +296,12 @@
     const sellBtn = document.getElementById("sell-btn");
     const orderMessageEl = document.getElementById("order-message");
     const ordersListEl = document.getElementById("orders-list");
+
+    const scalpHintEl = document.getElementById("scalp-hint");
+    const shortHintEl = document.getElementById("short-hint");
+    const longHintEl = document.getElementById("long-hint");
+
+    const priceHistory = [];
 
     function formatInr(x) {
       return x.toLocaleString("en-IN", { maximumFractionDigits: 2 });
@@ -327,10 +341,50 @@
       ordersListEl.prepend(row);
     }
 
+    function updateHints() {
+      if (priceHistory.length < 5) {
+        scalpHintEl.textContent = "Scalping: waiting for data…";
+        shortHintEl.textContent = "Short-term: waiting for data…";
+        longHintEl.textContent = "Long-term: waiting for data…";
+        return;
+      }
+
+      const last = priceHistory[priceHistory.length - 1];
+      const first = priceHistory[0];
+      const changePct = ((last - first) / first) * 100;
+
+      // Scalping (few minutes)
+      if (changePct < -0.3 && changePct > -1.5) {
+        scalpHintEl.textContent = "Scalping: Price thoda niche aaya hai, chhota BUY scalp 5–10 min ke liye socha ja sakta hai.";
+      } else if (changePct > 0.3 && changePct < 1.5) {
+        scalpHintEl.textContent = "Scalping: Price upar ja raha hai, sirf aggressive SELL scalp high risk hai.";
+      } else {
+        scalpHintEl.textContent = "Scalping: No clear edge, sirf dekhte raho.";
+      }
+
+      // Short-term (hours)
+      if (changePct > 1.5) {
+        shortHintEl.textContent = "Short-term: Strong up move; abhi BUY late ho sakta hai, pullback 4–12 hours ke liye wait karo.";
+      } else if (changePct < -1.5) {
+        shortHintEl.textContent = "Short-term: Dump hua hai; oversold bounce ke liye chhota BUY swing socha ja sakta hai.";
+      } else {
+        shortHintEl.textContent = "Short-term: Sideways zone; range trade ya no-trade zone.";
+      }
+
+      // Long-term (2+ din)
+      if (changePct > 3) {
+        longHintEl.textContent = "Long-term (2+ din): Structure bullish lag raha hai; abhi fresh SHORT risky ho sakta hai.";
+      } else if (changePct < -3) {
+        longHintEl.textContent = "Long-term (2+ din): Deep correction; gradual BUY / DCA socho, heavy SHORT avoid karo.";
+      } else {
+        longHintEl.textContent = "Long-term (2+ din): Normal move; hold / wait, koi strong signal nahi.";
+      }
+    }
+
     async function fetchPrice() {
       try {
         const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT");
-        const data = await res.json(); /* Binance public price API usage pattern. [web:81] */
+        const data = await res.json(); /* Binance public price API se BTCUSDT price lena documented pattern jaisa hai. [web:81] */
         const price = parseFloat(data.price);
         if (!isNaN(price)) {
           currentPrice = price;
@@ -338,6 +392,11 @@
           const now = new Date();
           priceUpdatedEl.textContent = "Last update: " + now.toLocaleTimeString();
           renderBalances();
+
+          priceHistory.push(currentPrice);
+          if (priceHistory.length > 20) priceHistory.shift();
+
+          updateHints();
         }
       } catch (e) {
         priceUpdatedEl.textContent = "Failed to fetch price.";
