@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TradingView Prep · BTCUSDT</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #050816;
+      color: #f9fafb;
+    }
+
+    .app {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 24px;
+    }
+
+    .sub {
+      margin: 0 0 16px;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+
+    .card {
+      background: radial-gradient(circle at top, #111827 0, #020617 55%);
+      border-radius: 16px;
+      padding: 12px 14px;
+      border: 1px solid #1f2937;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
+    }
+
+    .chart-wrapper {
+      margin-top: 8px;
+      margin-bottom: 6px;
+      border-radius: 12px;
+      border: 1px solid #111827;
+      background: #020617;
+      overflow: hidden;
+    }
+
+    .chart-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      padding: 8px 10px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chart-title {
+      font-size: 13px;
+      color: #e5e7eb;
+    }
+
+    .chart-sub {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .chart-container {
+      width: 100%;
+      height: 520px;
+      background: #020617;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .price-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px 10px;
+      gap: 8px;
+    }
+
+    .price-label {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .price-value {
+      font-size: 22px;
+      font-weight: 600;
+      color: #22c55e;
+    }
+
+    .price-sub {
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    @media (max-width: 640px) {
+      .chart-container {
+        height: 420px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>TradingView Prep · BTCUSDT</h1>
+    <p class="sub">
+      Practice layout for TradingView style chart + Binance Futures BTCUSDT price.
+    </p>
+
+    <div class="card">
+      <div class="chart-wrapper">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">BTCUSDT · TradingView (BINANCE:BTCUSDT)</div>
+            <div class="chart-sub">Full TradingView chart from tradingview.com</div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <!-- TradingView Advanced Chart widget (official embed) -->
+          <!-- Source: TradingView widget docs [web:206][web:208] -->
+          <div class="tradingview-widget-container">
+            <div id="tradingview_btcusdt"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+            <script type="text/javascript">
+              new TradingView.widget({
+                "width": "100%",
+                "height": "100%",
+                "symbol": "BINANCE:BTCUSDT",
+                "interval": "1",
+                "timezone": "Etc/UTC",
+                "theme": "dark",
+                "style": "1",
+                "locale": "en",
+                "toolbar_bg": "#131722",
+                "enable_publishing": false,
+                "allow_symbol_change": false,
+                "hide_legend": false,
+                "save_image": false,
+                "container_id": "tradingview_btcusdt"
+              });
+            </script>
+          </div>
+        </div>
+
+        <div class="price-row">
+          <div>
+            <div class="price-label">Live BTCUSDT futures price (Binance)</div>
+            <div class="price-sub">fapi/v1/ticker/24hr · lastPrice</div>
+          </div>
+          <div id="live-price" class="price-value">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const priceEl = document.getElementById("live-price");
+
+    async function fetchFuturesPrice() {
+      try {
+        const res = await fetch("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT");
+        const data = await res.json();
+        const price = parseFloat(data.lastPrice); // [web:194][web:201]
+
+        const formatted = price.toLocaleString("en-IN", {
+          maximumFractionDigits: 1,
+          minimumFractionDigits: 1
+        });
+
+        priceEl.textContent = formatted;
+      } catch (err) {
+        console.error(err);
+        priceEl.textContent = "Price error";
+      }
+    }
+
+    fetchFuturesPrice();
+    setInterval(fetchFuturesPrice, 5000);
+  </script>
+</body>
+</html>
