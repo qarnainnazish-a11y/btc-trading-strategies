@@ -144,7 +144,6 @@
       border: none;
     }
 
-    /* NEW: price display under chart */
     .price-row {
       display: flex;
       justify-content: space-between;
@@ -179,7 +178,7 @@
 <body>
   <div class="app">
     <h1>BTC PAPER TRADING</h1>
-    <p class="sub">Fake INR · Real BTC price (live chart + below same live price text).</p>
+    <p class="sub">Fake INR · Real BTC price (Binance Futures chart + same price below).</p>
 
     <div class="card">
       <div class="row">
@@ -193,12 +192,11 @@
       <div class="chart-wrapper">
         <div class="chart-header">
           <div>
-            <div class="chart-title">BTC/USDT · Binance</div>
-            <div class="chart-sub">TradingView live chart</div>
+            <div class="chart-title">BTCUSDT · Binance Futures</div>
+            <div class="chart-sub">TradingView style chart, Binance data</div>
           </div>
 
           <div>
-            <!-- Interval controls (visual only; TradingView iframe handle karega) -->
             <div class="segmented" aria-label="Chart interval">
               <input type="radio" name="interval" id="int-1m" checked />
               <label for="int-1m">1m</label>
@@ -213,7 +211,7 @@
         </div>
 
         <div class="chart-container">
-          <!-- TradingView chart iframe (same as your live site) -->
+          <!-- TradingView chart (BINANCE:BTCUSDT) -->
           <iframe
             id="tv-chart"
             src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_btcusdt&symbol=BINANCE:BTCUSDT&interval=1&hidesidetoolbar=1&symboledit=1&saveimage=0&toolbarbg=f1f3f6&studies=[]&hideideas=1&theme=dark"
@@ -221,11 +219,10 @@
           </iframe>
         </div>
 
-        <!-- NEW: Live price under chart -->
         <div class="price-row">
           <div>
-            <div class="price-label">Live BTC price (same as chart)</div>
-            <div class="price-sub">Source: TradingView · BINANCE:BTCUSDT</div>
+            <div class="price-label">Live BTCUSDT futures price (same as Binance futures)</div>
+            <div class="price-sub">Source: Binance Futures · fapi/v1/ticker/24hr</div>
           </div>
           <div id="live-price" class="price-value">Loading…</div>
         </div>
@@ -233,31 +230,29 @@
     </div>
   </div>
 
-  <!-- Simple JS: fetch same BTC price from public API and show below chart -->
   <script>
     const priceEl = document.getElementById("live-price");
 
     async function fetchPrice() {
       try {
-        // Binance public API for BTCUSDT (same symbol as chart)
-        const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT");
-        const data = await res.json();
-        const price = parseFloat(data.price);
+        // Binance Futures 24hr ticker (BTCUSDT)
+        const res = await fetch("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT");
+        const data = await res.json(); // [web:194][web:201]
 
-        // Format with commas and 2 decimals
+        const price = parseFloat(data.lastPrice);
+
         const formatted = price.toLocaleString("en-IN", {
-          maximumFractionDigits: 2,
-          minimumFractionDigits: 2
+          maximumFractionDigits: 1,
+          minimumFractionDigits: 1
         });
 
-        priceEl.textContent = "₹ " + formatted;
+        priceEl.textContent = formatted;
       } catch (e) {
         console.error(e);
         priceEl.textContent = "Price error";
       }
     }
 
-    // Initial + repeat every 5 seconds
     fetchPrice();
     setInterval(fetchPrice, 5000);
   </script>
