@@ -101,6 +101,76 @@
       color: #6b7280;
     }
 
+    /* Strategy hints panel */
+    .strategy-panel {
+      margin-top: 12px;
+      border-radius: 12px;
+      border: 1px solid #111827;
+      background: #020617;
+      padding: 10px 12px;
+    }
+
+    .strategy-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .strategy-title {
+      font-size: 13px;
+      color: #e5e7eb;
+    }
+
+    .strategy-tag {
+      font-size: 10px;
+      color: #9ca3af;
+      border-radius: 999px;
+      padding: 3px 8px;
+      border: 1px solid #1f2937;
+      background: #020617;
+    }
+
+    .strategy-body {
+      font-size: 12px;
+      color: #d1d5db;
+      line-height: 1.5;
+    }
+
+    .strategy-body strong {
+      color: #f97316;
+      font-weight: 600;
+    }
+
+    .strategy-footer {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .strategy-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .strategy-btn {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+
+    .strategy-btn.active {
+      background: linear-gradient(to right, #0f172a, #1f2937);
+      color: #f9fafb;
+    }
+
     @media (max-width: 640px) {
       .chart-container {
         height: 420px;
@@ -125,8 +195,6 @@
         </div>
 
         <div class="chart-container">
-          <!-- TradingView Advanced Chart widget (official embed) -->
-          <!-- Source: TradingView widget docs [web:206][web:208] -->
           <div class="tradingview-widget-container">
             <div id="tradingview_btcusdt"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -159,17 +227,41 @@
           <div id="live-price" class="price-value">Loading…</div>
         </div>
       </div>
+
+      <!-- STRATEGY HINTS PANEL -->
+      <div class="strategy-panel">
+        <div class="strategy-header">
+          <div class="strategy-title">Strategy hints for BTCUSDT (educational only)</div>
+          <span class="strategy-tag">Trend + RSI + Levels</span>
+        </div>
+
+        <div class="strategy-buttons">
+          <button class="strategy-btn active" data-strategy="trend">Trend follow</button>
+          <button class="strategy-btn" data-strategy="range">Range scalp</button>
+          <button class="strategy-btn" data-strategy="breakout">Breakout watch</button>
+        </div>
+
+        <div id="strategy-text" class="strategy-body" style="margin-top:8px;">
+          <strong>Idea:</strong> Price above key moving averages = market in uptrend. Look for <strong>buy on dips</strong> near support instead of chasing every green candle. Place stop‑loss just below recent swing low and keep position size small.  
+          Entry only when BTC respects support level 2–3 times and volume is not collapsing.
+        </div>
+
+        <div class="strategy-footer">
+          Not financial advice. These hints are for paper‑trading practice only. Always manage risk and avoid over‑leveraging. [web:216][web:221][web:224]
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
+    // Price from Binance Futures
     const priceEl = document.getElementById("live-price");
 
     async function fetchFuturesPrice() {
       try {
         const res = await fetch("https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT");
         const data = await res.json();
-        const price = parseFloat(data.lastPrice); // [web:194][web:201]
+        const price = parseFloat(data.lastPrice);
 
         const formatted = price.toLocaleString("en-IN", {
           maximumFractionDigits: 1,
@@ -185,6 +277,25 @@
 
     fetchFuturesPrice();
     setInterval(fetchFuturesPrice, 5000);
+
+    // Strategy hints switcher
+    const strategyText = document.getElementById("strategy-text");
+    const buttons = document.querySelectorAll(".strategy-btn");
+
+    const strategyCopy = {
+      trend: "Idea: Price above key moving averages = market in uptrend. Look for buy on dips near support instead of chasing every green candle. Place stop-loss just below recent swing low and keep position size small. Entry only when BTC respects support level 2–3 times and volume is not collapsing.",
+      range: "Idea: When BTCUSDT is moving sideways between clear support / resistance, sell near the top of the range and buy near the bottom. Avoid trading in the middle. Define range borders on TradingView and keep tight stop-loss just outside the range. Volume dropping inside the range usually means fake moves.",
+      breakout: "Idea: Mark important levels where price has reversed many times. Wait for a strong breakout candle with higher volume through that level. Enter after candle close, not in the middle of the spike. Keep stop-loss just on the other side of the level and do not chase if you miss the first move."
+    };
+
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        buttons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const key = btn.dataset.strategy;
+        strategyText.textContent = strategyCopy[key];
+      });
+    });
   </script>
 </body>
 </html>
