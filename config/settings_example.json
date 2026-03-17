@@ -1,0 +1,11 @@
+{
+  "exchange": "binance",
+  "paper": true,
+  "symbol": "BTC/USDT",
+  "timeframe": "1m",
+  "candles_limit": 200,
+  "rsi_period": 14,
+  "rsi_overbought": 70,
+  "rsi_oversold": 30,
+  "position_size_usdt": 50
+}
