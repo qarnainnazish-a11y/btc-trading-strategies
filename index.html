@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BTC Trading Strategies</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #050816;
+      color: #e5e7eb;
+    }
+    header {
+      padding: 24px 32px;
+      border-bottom: 1px solid #111827;
+      background: #020617;
+    }
+    .logo {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #38bdf8;
+    }
+    main {
+      max-width: 900px;
+      margin: 32px auto;
+      padding: 0 16px 48px;
+    }
+    h1 {
+      font-size: 2.4rem;
+      margin-bottom: 8px;
+    }
+    h2 {
+      margin-top: 32px;
+      font-size: 1.4rem;
+      border-bottom: 1px solid #1f2937;
+      padding-bottom: 4px;
+    }
+    p {
+      line-height: 1.6;
+      color: #d1d5db;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin: 4px 0;
+    }
+    code {
+      background: #111827;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    pre {
+      background: #020617;
+      padding: 12px 14px;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid #1f2937;
+    }
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #0f172a;
+      border: 1px solid #1d4ed8;
+      color: #93c5fd;
+      margin-right: 6px;
+    }
+    .card {
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      padding: 16px 18px;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.15), transparent 60%);
+      margin-top: 16px;
+    }
+    footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 0.8rem;
+      color: #6b7280;
+      border-top: 1px solid #111827;
+      background: #020617;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">BTC Trading Strategies</div>
+  </header>
+
+  <main>
+    <section>
+      <h1>BTC Trading Strategies</h1>
+      <p>
+        Experimental Python project for BTC/USDT paper trading with multiple strategy types:
+        scalping, short-term, and long-term. Built using CCXT, pandas, and indicator-based logic.
+      </p>
+      <div class="card">
+        <div>
+          <span class="badge">Status: WIP</span>
+          <span class="badge">Mode: Paper trading only</span>
+        </div>
+        <p style="margin-top: 8px;">
+          This project is for learning and experimentation. It is not financial advice and should not be used with real money as-is.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Features</h2>
+      <ul>
+        <li>BTC/USDT paper trading loop using CCXT.</li>
+        <li>RSI-based scalping strategy for 1m / 5m candles.</li>
+        <li>Basic backtesting script to simulate balance changes.</li>
+        <li>Modular structure for adding short-term and long-term strategies.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Project Structure</h2>
+      <pre><code>.
+├── config/
+│   └── settings_example.json
+├── exchange/
+│   └── ccxt_client.py
+├── strategies/
+│   ├── base.py
+│   └── scalping.py
+├── backtests/
+│   └── run_backtest.py
+├── main.py
+└── requirements.txt
+      </code></pre>
+    </section>
+
+    <section>
+      <h2>How to Run (Local)</h2>
+      <p>Clone the repository and install dependencies:</p>
+      <pre><code>git clone https://github.com/qarnainnazish-a11y/btc-trading-strategies.git
+cd btc-trading-strategies
+pip install -r requirements.txt
+</code></pre>
+
+      <p>Run a simple backtest:</p>
+      <pre><code>python backtests/run_backtest.py
+</code></pre>
+
+      <p>Start the paper trading loop:</p>
+      <pre><code>python main.py
+</code></pre>
+    </section>
+
+    <section>
+      <h2>Source Code</h2>
+      <p>
+        View the full source on GitHub:
+        <a href="https://github.com/qarnainnazish-a11y/btc-trading-strategies" target="_blank" rel="noopener">
+          qarnainnazish-a11y/btc-trading-strategies
+        </a>
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    BTC Trading Strategies · Experimental project · Built with Python &amp; CCXT
+  </footer>
+</body>
+</html>
