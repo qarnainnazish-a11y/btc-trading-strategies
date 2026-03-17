@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BTC Paper Trading</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #111827;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #020617;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      font-size: 0.9rem;
+    }
+    .pill {
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      padding: 2px 8px;
+      font-size: 0.78rem;
+      color: #9ca3af;
+    }
+    main {
+      max-width: 1100px;
+      margin: 16px auto 40px;
+      padding: 0 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr);
+      gap: 14px;
+    }
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .card {
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      padding: 14px 16px;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.12), transparent 60%);
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      border-bottom: 1px solid #1f2937;
+      padding-bottom: 4px;
+    }
+    .muted {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+    .price {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin: 4px 0;
+    }
+    .chart-card {
+      grid-column: 1 / -1;
+      height: 420px;
+      padding: 0;
+      overflow: hidden;
+    }
+    .chart-inner {
+      height: 100%;
+      width: 100%;
+    }
+
+    .balance-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .balance-item {
+      background: #020617;
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid #1f2937;
+    }
+    .balance-label {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    .balance-value {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .form-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      align-items: center;
+    }
+    .form-row input {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.9rem;
+    }
+    .form-row input:focus {
+      outline: 1px solid #38bdf8;
+      border-color: #38bdf8;
+    }
+    .btn {
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .btn-buy {
+      background: #16a34a;
+      color: white;
+    }
+    .btn-sell {
+      background: #ef4444;
+      color: white;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .orders {
+      max-height: 260px;
+      overflow-y: auto;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      background: #020617;
+    }
+    .order-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 10px;
+      font-size: 0.86rem;
+      border-bottom: 1px solid #030712;
+    }
+    .order-row:last-child {
+      border-bottom: none;
+    }
+    .order-side-buy {
+      color: #4ade80;
+      font-weight: 600;
+    }
+    .order-side-sell {
+      color: #fca5a5;
+      font-weight: 600;
+    }
+    footer {
+      text-align: center;
+      padding: 10px;
+      font-size: 0.75rem;
+      color: #6b7280;
+      border-top: 1px solid #111827;
+      background: #020617;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">BTC PAPER TRADING</div>
+    <div class="pill">Fake INR · Real BTC price</div>
+  </header>
+
+  <main>
+    <!-- TradingView chart -->
+    <section class="card chart-card">
+      <div class="chart-inner">
+        <div class="tradingview-widget-container" style="height:100%; width:100%;">
+          <div id="tv_chart_container" style="height:100%; width:100%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Left: Price + order form -->
+    <section class="card">
+      <h2>BTC/USDT Price</h2>
+      <div id="price" class="price">--</div>
+      <div class="muted" id="price-updated">Fetching...</div>
+
+      <div style="margin-top: 16px; border-top: 1px solid #1f2937; padding-top: 10px;">
+        <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Place Order</h2>
+        <div class="muted">Market orders using fake INR balance. Quantity is in BTC.</div>
+
+        <div class="form-row">
+          <input id="qty-input" type="number" step="0.0001" min="0" placeholder="Quantity (BTC)" />
+        </div>
+        <div class="form-row">
+          <button id="buy-btn" class="btn btn-buy">Buy BTC</button>
+          <button id="sell-btn" class="btn btn-sell">Sell BTC</button>
+        </div>
+        <div class="muted" id="order-message" style="margin-top:6px; min-height:18px;"></div>
+      </div>
+    </section>
+
+    <!-- Right: Balance + orders -->
+    <section class="card">
+      <h2>Portfolio (Fake)</h2>
+      <p class="muted" style="margin:0 0 6px;">
+        This balance is only for simulation. No real money, no real orders.
+      </p>
+
+      <div class="balance-grid">
+        <div class="balance-item">
+          <div class="balance-label">INR Balance</div>
+          <div class="balance-value" id="inr-balance">₹ --</div>
+        </div>
+        <div class="balance-item">
+          <div class="balance-label">BTC Holdings</div>
+          <div class="balance-value" id="btc-balance">-- BTC</div>
+        </div>
+      </div>
+      <div class="balance-item" style="margin-top:8px;">
+        <div class="balance-label">Total Value (INR)</div>
+        <div class="balance-value" id="total-value">₹ --</div>
+      </div>
+
+      <h2 style="margin-top:16px;">Orders</h2>
+      <div class="orders" id="orders-list">
+        <div class="order-row">
+          <span class="muted">No orders yet.</span>
+          <span></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    BTC Paper Trading · Frontend-only simulator · Data from public API & TradingView
+  </footer>
+
+  <!-- TradingView script -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+    new TradingView.widget({
+      "width": "100%",
+      "height": "100%",
+      "symbol": "BINANCE:BTCUSDT",
+      "interval": "1",
+      "timezone": "Etc/UTC",
+      "theme": "dark",
+      "style": "1",
+      "locale": "en",
+      "toolbar_bg": "#020617",
+      "enable_publishing": false,
+      "hide_legend": false,
+      "save_image": false,
+      "container_id": "tv_chart_container"
+    });
+  </script>
+
+  <!-- Paper trading logic -->
+  <script>
+    let inrBalance = 100000;
+    let btcBalance = 0;
+    let currentPrice = null;
+    const INR_PER_USDT = 85;
+
+    const priceEl = document.getElementById("price");
+    const priceUpdatedEl = document.getElementById("price-updated");
+    const inrBalanceEl = document.getElementById("inr-balance");
+    const btcBalanceEl = document.getElementById("btc-balance");
+    const totalValueEl = document.getElementById("total-value");
+    const qtyInput = document.getElementById("qty-input");
+    const buyBtn = document.getElementById("buy-btn");
+    const sellBtn = document.getElementById("sell-btn");
+    const orderMessageEl = document.getElementById("order-message");
+    const ordersListEl = document.getElementById("orders-list");
+
+    function formatInr(x) {
+      return x.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+    }
+
+    function formatPrice(x) {
+      return x.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    }
+
+    function renderBalances() {
+      inrBalanceEl.textContent = "₹ " + formatInr(inrBalance);
+      btcBalanceEl.textContent = btcBalance.toFixed(6) + " BTC";
+      if (currentPrice) {
+        const usdtValue = btcBalance * currentPrice;
+        const inrValue = usdtValue * INR_PER_USDT + inrBalance;
+        totalValueEl.textContent = "₹ " + formatInr(inrValue);
+      } else {
+        totalValueEl.textContent = "₹ --";
+      }
+    }
+
+    function addOrderRow(side, qty, price) {
+      if (ordersListEl.children.length === 1 && ordersListEl.children[0].querySelector(".muted")) {
+        ordersListEl.innerHTML = "";
+      }
+      const row = document.createElement("div");
+      row.className = "order-row";
+
+      const left = document.createElement("span");
+      left.innerHTML = `<span class="${side === "buy" ? "order-side-buy" : "order-side-sell"}">${side.toUpperCase()}</span> · ${qty.toFixed(6)} BTC`;
+
+      const right = document.createElement("span");
+      right.textContent = "@ " + formatPrice(price) + " USDT";
+
+      row.appendChild(left);
+      row.appendChild(right);
+      ordersListEl.prepend(row);
+    }
+
+    async function fetchPrice() {
+      try {
+        const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT");
+        const data = await res.json(); /* Binance public price API usage pattern. [web:81] */
+        const price = parseFloat(data.price);
+        if (!isNaN(price)) {
+          currentPrice = price;
+          priceEl.textContent = "$ " + formatPrice(price);
+          const now = new Date();
+          priceUpdatedEl.textContent = "Last update: " + now.toLocaleTimeString();
+          renderBalances();
+        }
+      } catch (e) {
+        priceUpdatedEl.textContent = "Failed to fetch price.";
+      }
+    }
+
+    function placeOrder(side) {
+      orderMessageEl.textContent = "";
+      if (!currentPrice) {
+        orderMessageEl.textContent = "Price not loaded yet.";
+        return;
+      }
+      const qty = parseFloat(qtyInput.value);
+      if (!qty || qty <= 0) {
+        orderMessageEl.textContent = "Enter a valid BTC quantity.";
+        return;
+      }
+      const usdtCost = qty * currentPrice;
+      const inrCost = usdtCost * INR_PER_USDT;
+
+      if (side === "buy") {
+        if (inrCost > inrBalance) {
+          orderMessageEl.textContent = "Not enough INR balance.";
+          return;
+        }
+        inrBalance -= inrCost;
+        btcBalance += qty;
+        orderMessageEl.textContent = `BUY ${qty.toFixed(6)} BTC filled.`;
+      } else {
+        if (qty > btcBalance) {
+          orderMessageEl.textContent = "Not enough BTC balance.";
+          return;
+        }
+        inrBalance += inrCost;
+        btcBalance -= qty;
+        orderMessageEl.textContent = `SELL ${qty.toFixed(6)} BTC filled.`;
+      }
+
+      addOrderRow(side, qty, currentPrice);
+      renderBalances();
+      qtyInput.value = "";
+    }
+
+    buyBtn.addEventListener("click", () => placeOrder("buy"));
+    sellBtn.addEventListener("click", () => placeOrder("sell"));
+
+    renderBalances();
+    fetchPrice();
+    setInterval(fetchPrice, 15000);
+  </script>
+</body>
+</html>
