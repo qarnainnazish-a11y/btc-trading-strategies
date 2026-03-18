@@ -63,9 +63,10 @@
     }
     .muted { font-size: 0.85rem; color: #9ca3af; }
     .price {
-      font-size: 1.8rem;
+      font-size: 1.5rem;
       font-weight: 700;
       margin: 4px 0;
+      word-break: break-all;
     }
     .chart-card {
       grid-column: 1 / -1;
@@ -181,7 +182,7 @@
             id="symbol-search"
             type="text"
             placeholder="TV link or symbol (BTCUSDT, BTCUSDT.P)"
-            style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937; min-width:160px;"
+            style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937; min-width:170px;"
           />
           <button id="symbol-search-btn" class="btn" style="font-size:0.78rem; padding:4px 8px;">
             Go
@@ -189,7 +190,7 @@
         </div>
       </h2>
       <div class="muted" style="margin-bottom:4px;">
-        Paste TradingView link or type symbol. “.P” → Binance futures price, otherwise spot price. [web:18][web:21][web:24]
+        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot price. [web:18][web:21][web:24]
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
@@ -218,9 +219,9 @@
 
     <!-- Right: Balance + orders -->
     <section class="card">
-      <h2>Portfolio</h2>
+      <h2>Portfolio (Fake)</h2>
       <p class="muted" style="margin:0 0 6px;">
-        JUST TESTING STRATEGY
+        Demo only. No real funds or orders.
       </p>
 
       <div class="balance-grid">
@@ -282,8 +283,8 @@
     const PRICE_HISTORY_LIMIT = 20;
     const FETCH_INTERVAL_MS = 15000;
 
-    let currentSymbol   = "BTCUSDT";          // base symbol (spot style or with .P)
-    let currentTvSymbol = "BINANCE:BTCUSDT";  // TradingView symbol
+    let currentSymbol   = "BTCUSDT";          // BTCUSDT or BTCUSDT.P
+    let currentTvSymbol = "BINANCE:BTCUSDT";
     let currentBaseCoin = "BTC";
 
     let usdtBalance  = INITIAL_USDT_BALANCE;
@@ -311,19 +312,19 @@
     const symbolSearch    = document.getElementById("symbol-search");
     const symbolSearchBtn = document.getElementById("symbol-search-btn");
 
-    const formatUsdt = x =>
-      x.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    const formatUsdtShort = x =>
+      Number(x).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
     const renderBalances = () => {
-      usdtBalanceEl.textContent = formatUsdt(usdtBalance) + " USDT";
-      coinBalanceEl.textContent = coinBalance.toFixed(6) + " " + currentBaseCoin;
+      usdtBalanceEl.textContent  = formatUsdtShort(usdtBalance) + " USDT";
+      coinBalanceEl.textContent  = coinBalance.toFixed(6) + " " + currentBaseCoin;
 
       if (!currentPrice) {
         totalValueEl.textContent = "--";
         return;
       }
       const total = usdtBalance + coinBalance * currentPrice;
-      totalValueEl.textContent = formatUsdt(total) + " USDT";
+      totalValueEl.textContent = formatUsdtShort(total) + " USDT";
     };
 
     const addOrderRow = (side, qty, price) => {
@@ -344,7 +345,7 @@
 
       const right = document.createElement("span");
       right.textContent =
-        currentSymbol + " @ " + formatUsdt(price) + " USDT";
+        currentSymbol + " @ " + price + " USDT";
 
       row.appendChild(left);
       row.appendChild(right);
@@ -366,7 +367,6 @@
       const first = priceHistory[0];
       const changePct = ((last - first) / first) * 100;
 
-      // Scalping
       if (changePct <= -0.2 && changePct > -1.2) {
         scalpHintEl.textContent =
           "Scalping: Small dip, BUY scalp 5–10 min ke liye try kar sakte ho.";
@@ -384,36 +384,34 @@
           "Scalping: Flat move, entry force mat karo.";
       }
 
-      // Short-term
       if (changePct > 1.5) {
         shortHintEl.textContent =
-          "Short-term: Strong up move, pullback wait karo 4–12 hours ke liye.";
+          "Short-term: Strong up move; pullback wait karo 4–12 hours ke liye.";
       } else if (changePct < -1.5) {
         shortHintEl.textContent =
-          "Short-term: Dump hua hai, chhota BUY swing bounce ke liye.";
+          "Short-term: Dump hua hai; chhota BUY swing bounce ke liye.";
       } else {
         shortHintEl.textContent =
-          "Short-term: Sideways zone, range trade ya no‑trade.";
+          "Short-term: Sideways zone; range trade ya no‑trade.";
       }
 
-      // Long-term
       if (changePct > 3) {
         longHintEl.textContent =
-          "Long-term: Bullish structure, fresh SHORT risky.";
+          "Long-term: Bullish structure; fresh SHORT risky.";
       } else if (changePct < -3) {
         longHintEl.textContent =
-          "Long-term: Deep correction, gradual BUY / DCA socho.";
+          "Long-term: Deep correction; gradual BUY / DCA socho.";
       } else {
         longHintEl.textContent =
-          "Long-term: Normal move, hold / wait.";
+          "Long-term: Normal move; hold / wait.";
       }
     };
 
-    // .P => futures, else spot [web:18][web:37]
+    // .P => futures, else spot [web:18][web:21]
     const fetchPrice = async () => {
       try {
         const isPerp = currentSymbol.endsWith(".P");
-        const base   = currentSymbol.replace(".P", "").replace("_PERP", "");
+        const base   = currentSymbol.replace(".P", "").replace("_PERP","");
 
         const endpoint = isPerp
           ? "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + base
@@ -421,11 +419,11 @@
 
         const res  = await fetch(endpoint);
         const data = await res.json();
-        const price = parseFloat(data.price);
-        if (!Number.isFinite(price)) throw new Error("Invalid price");
+        // Binance price as string with full decimals [web:18][web:21]
+        currentPrice = parseFloat(data.price);
 
-        currentPrice = price;
-        priceEl.textContent = formatUsdt(price) + " USDT";
+        // Full price string show karo
+        priceEl.textContent = data.price + " USDT";
 
         const now = new Date();
         priceUpdatedEl.textContent = "Last update: " + now.toLocaleTimeString();
@@ -478,7 +476,7 @@
           `SELL ${qty.toFixed(6)} ${currentBaseCoin} filled.`;
       }
 
-      addOrderRow(side, qty, currentPrice);
+      addOrderRow(side, qty, data.price || currentPrice.toString());
       renderBalances();
       qtyInput.value = "";
     };
@@ -503,18 +501,16 @@
             const parts = symbolParam.split(":");
             return parts[parts.length - 1].toUpperCase();
           }
-        } catch (e) {
-          // fall through to plain handling
-        }
+        } catch (e) {}
       }
 
-      s = s.toUpperCase().replace(/\s+/g, "").replace("/", "");
+      s = s.toUpperCase().replace(/\s+/g,"").replace("/","");
       if (!s.endsWith("USDT") && !s.endsWith("USDT.P")) s = s + "USDT";
       return s;
     };
 
     const updateSymbol = symbol => {
-      currentSymbol   = symbol;                 // e.g. BTCUSDT or BTCUSDT.P
+      currentSymbol   = symbol;
       currentTvSymbol = "BINANCE:" + symbol;
       currentBaseCoin = symbol.replace("USDT.P","").replace("USDT","");
 
@@ -539,7 +535,6 @@
       fetchPrice();
     };
 
-    // Events
     buyBtn.addEventListener("click", () => placeOrder("buy"));
     sellBtn.addEventListener("click", () => placeOrder("sell"));
 
@@ -566,7 +561,6 @@
       if (e.key === "Enter") symbolSearchBtn.click();
     });
 
-    // Init
     renderBalances();
     initTradingView(currentTvSymbol);
     fetchPrice();
