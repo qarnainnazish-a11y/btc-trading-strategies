@@ -154,7 +154,12 @@
 <body>
   <header>
     <div class="logo">PAPER TRADING</div>
-    <div class="pill">USDT · Real market price</div>
+    <div class="pill">
+      USDT · Real market price ·
+      <a href="futures-trade.html" style="color:#38bdf8; text-decoration:none; margin-left:4px;">
+        Futures mode →
+      </a>
+    </div>
   </header>
 
   <main>
@@ -223,7 +228,7 @@
     <section class="card">
       <h2>Portfolio</h2>
       <p class="muted" style="margin:0 0 6px;">
-        Strategy Testing
+        Spot paper trading · basic PnL feel.
       </p>
 
       <div class="balance-grid">
@@ -375,7 +380,7 @@
       return ((last - first) / first) * 100;
     };
 
-    const getScalpStats = (windowSize = 20) => {  // 15 → 20
+    const getScalpStats = (windowSize = 20) => {
       const len = priceHistory.length;
       if (len < windowSize + 1) return null;
       const start = len - windowSize - 1;
@@ -394,9 +399,9 @@
       return { changePct, avgStep };
     };
 
-    // ORIGINAL simple scalping % logic (sirf window 15 ticks)
+    // Original simple % scalping (window 15)
     const updateScalpHintBasic = () => {
-      const scalpChange = getChangePct(15); // pehle 10 tha, ab 15
+      const scalpChange = getChangePct(15);
       if (scalpChange == null) {
         scalpHintEl.textContent = "Scalping: waiting for data…";
       } else if (scalpChange <= -0.15 && scalpChange > -0.8) {
@@ -419,7 +424,7 @@
 
     // Volatility-based hint
     const updateScalpVolHint = () => {
-      const stats = getScalpStats(20);  // 15 → 20
+      const stats = getScalpStats(20);
       if (!stats) {
         scalpVolHintEl.textContent = "Scalping (volatility): waiting for data…";
         return;
@@ -453,10 +458,10 @@
       }
     };
 
-    // Range-based scalping hint (local support/resistance)
+    // Range-based scalping (local support/resistance)
     const updateScalpRangeHint = () => {
       const len = priceHistory.length;
-      const windowSize = 40; // 30 → 40
+      const windowSize = 40;
       if (len < windowSize) {
         scalpRangeHintEl.textContent = "Scalping (range): waiting for range data…";
         return;
