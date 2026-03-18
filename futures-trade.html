@@ -258,7 +258,7 @@
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Strategy Hints</h2>
         <div class="muted" id="scalp-hint">Scalping: waiting for data…</div>
         <div class="muted" id="scalp-vol-hint">Scalping (volatility): waiting for data…</div>
-        <div class="muted" id="scalp-range-hint">Scalping (range): waiting for data…</div>
+        <div class="muted" id="scalp-range-hint">Scalping (range): waiting for range data…</div>
         <div class="muted" id="short-hint">Short-term: waiting for data…</div>
         <div class="muted" id="long-hint">Long-term: waiting for data…</div>
       </div>
@@ -363,8 +363,10 @@
     const priceHistory    = [];
     const priceStrHistory = [];
 
-    let longPosition  = null; // { qty, entry, lev, strategy }
-    let shortPosition = null;
+    // multiple positions
+    let longPositions  = []; // each: { id, qty, entry, lev, strategy }
+    let shortPositions = [];
+    let nextPosId      = 1;
 
     let liveAutoEnabled = false;
 
@@ -673,41 +675,53 @@
         renderWallet(0);
         return;
       }
-      let totalUnrealized = 0;
 
-      if (longPosition) {
-        const diff = currentPrice - longPosition.entry;
-        const pnl  = diff * longPosition.qty * longPosition.lev;
+      let totalUnrealizedLong  = 0;
+      let totalUnrealizedShort = 0;
+
+      if (longPositions.length) {
+        let lines = [];
+        longPositions.forEach(pos => {
+          const diff = currentPrice - pos.entry;
+          const pnl  = diff * pos.qty * pos.lev;
+          totalUnrealizedLong += pnl;
+          lines.push(
+            `#${pos.id}: ${pos.qty.toFixed(6)} ${currentBaseCoin} · Entry: ${fmtUsdtShort(pos.entry)} · Lev: ${pos.lev}x`
+          );
+        });
+        longPosEl.textContent = lines.join(" | ");
         longPnlEl.textContent =
-          "PnL: " + (pnl >= 0 ? "+" : "") + fmtUsdtShort(pnl) + " USDT";
+          "PnL (longs): " + (totalUnrealizedLong >= 0 ? "+" : "") + fmtUsdtShort(totalUnrealizedLong) + " USDT";
         longPnlEl.className =
-          "muted " + (pnl > 0 ? "pnl-positive" : pnl < 0 ? "pnl-negative" : "");
-        totalUnrealized += pnl;
+          "muted " + (totalUnrealizedLong > 0 ? "pnl-positive" : totalUnrealizedLong < 0 ? "pnl-negative" : "");
       } else {
+        longPosEl.textContent = "No long position.";
         longPnlEl.textContent = "PnL: --";
         longPnlEl.className   = "muted";
       }
 
-      if (shortPosition) {
-        const diff = shortPosition.entry - currentPrice;
-        const pnl  = diff * shortPosition.qty * shortPosition.lev;
+      if (shortPositions.length) {
+        let lines = [];
+        shortPositions.forEach(pos => {
+          const diff = pos.entry - currentPrice;
+          const pnl  = diff * pos.qty * pos.lev;
+          totalUnrealizedShort += pnl;
+          lines.push(
+            `#${pos.id}: ${pos.qty.toFixed(6)} ${currentBaseCoin} · Entry: ${fmtUsdtShort(pos.entry)} · Lev: ${pos.lev}x`
+          );
+        });
+        shortPosEl.textContent = lines.join(" | ");
         shortPnlEl.textContent =
-          "PnL: " + (pnl >= 0 ? "+" : "") + fmtUsdtShort(pnl) + " USDT";
+          "PnL (shorts): " + (totalUnrealizedShort >= 0 ? "+" : "") + fmtUsdtShort(totalUnrealizedShort) + " USDT";
         shortPnlEl.className =
-          "muted " + (pnl > 0 ? "pnl-positive" : pnl < 0 ? "pnl-negative" : "");
-        totalUnrealized += pnl;
+          "muted " + (totalUnrealizedShort > 0 ? "pnl-positive" : totalUnrealizedShort < 0 ? "pnl-negative" : "");
       } else {
+        shortPosEl.textContent = "No short position.";
         shortPnlEl.textContent = "PnL: --";
         shortPnlEl.className   = "muted";
       }
 
-      renderWallet(totalUnrealized);
-      longPosEl.textContent = longPosition
-        ? `Qty: ${longPosition.qty.toFixed(6)} ${currentBaseCoin} · Entry: ${fmtUsdtShort(longPosition.entry)} · Lev: ${longPosition.lev}x`
-        : "No long position.";
-      shortPosEl.textContent = shortPosition
-        ? `Qty: ${shortPosition.qty.toFixed(6)} ${currentBaseCoin} · Entry: ${fmtUsdtShort(shortPosition.entry)} · Lev: ${shortPosition.lev}x`
-        : "No short position.";
+      renderWallet(totalUnrealizedLong + totalUnrealizedShort);
     }
 
     function updateMarginPreview() {
@@ -745,16 +759,23 @@
         return;
       }
 
-      const pos = { qty, entry: currentPrice, lev, strategy: strategyTag || "manual" };
-      if (side === "long") longPosition = pos;
-      else shortPosition = pos;
+      const pos = {
+        id: nextPosId++,
+        qty,
+        entry: currentPrice,
+        lev,
+        strategy: strategyTag || "manual"
+      };
+
+      if (side === "long") longPositions.push(pos);
+      else shortPositions.push(pos);
 
       usedMargin += marginNeeded;
       const lastPriceStr =
         priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-      addFillRow(side, qty, lastPriceStr, strategyTag || "manual");
+      addFillRow(side, qty, lastPriceStr, (strategyTag || "manual") + ` #${pos.id}`);
       orderMessageEl.textContent =
-        `${side.toUpperCase()} ${qty.toFixed(6)} ${currentBaseCoin} opened (${strategyTag || "manual"}).`;
+        `${side.toUpperCase()} #${pos.id} ${qty.toFixed(6)} ${currentBaseCoin} opened (${strategyTag || "manual"}).`;
 
       qtyInput.value = "";
       updateMarginPreview();
@@ -768,32 +789,40 @@
         return;
       }
 
-      if (side === "long" && longPosition) {
-        const diff   = currentPrice - longPosition.entry;
-        const pnl    = diff * longPosition.qty * longPosition.lev;
-        const margin = (longPosition.qty * longPosition.entry) / longPosition.lev;
-        walletBalance += pnl;
-        usedMargin    -= margin;
-        const lastPriceStr =
-          priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-        addFillRow("long", longPosition.qty, lastPriceStr, longPosition.strategy || "close");
+      if (side === "long" && longPositions.length) {
+        let totalPnl = 0;
+        longPositions.forEach(pos => {
+          const diff   = currentPrice - pos.entry;
+          const pnl    = diff * pos.qty * pos.lev;
+          const margin = (pos.qty * pos.entry) / pos.lev;
+          walletBalance += pnl;
+          usedMargin    -= margin;
+          const lastPriceStr =
+            priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
+          addFillRow("long", pos.qty, lastPriceStr, (pos.strategy || "close") + ` #${pos.id}`);
+          totalPnl += pnl;
+        });
+        longPositions = [];
         orderMessageEl.textContent =
-          `LONG closed · Realized PnL: ${(pnl >= 0 ? "+" : "")}${fmtUsdtShort(pnl)} USDT`;
-        longPosition = null;
+          `ALL LONGS closed · Realized PnL: ${(totalPnl >= 0 ? "+" : "")}${fmtUsdtShort(totalPnl)} USDT`;
       }
 
-      if (side === "short" && shortPosition) {
-        const diff   = shortPosition.entry - currentPrice;
-        const pnl    = diff * shortPosition.qty * shortPosition.lev;
-        const margin = (shortPosition.qty * shortPosition.entry) / shortPosition.lev;
-        walletBalance += pnl;
-        usedMargin    -= margin;
-        const lastPriceStr =
-          priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-        addFillRow("short", shortPosition.qty, lastPriceStr, shortPosition.strategy || "close");
+      if (side === "short" && shortPositions.length) {
+        let totalPnl = 0;
+        shortPositions.forEach(pos => {
+          const diff   = pos.entry - currentPrice;
+          const pnl    = diff * pos.qty * pos.lev;
+          const margin = (pos.qty * pos.entry) / pos.lev;
+          walletBalance += pnl;
+          usedMargin    -= margin;
+          const lastPriceStr =
+            priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
+          addFillRow("short", pos.qty, lastPriceStr, (pos.strategy || "close") + ` #${pos.id}`);
+          totalPnl += pnl;
+        });
+        shortPositions = [];
         orderMessageEl.textContent =
-          `SHORT closed · Realized PnL: ${(pnl >= 0 ? "+" : "")}${fmtUsdtShort(pnl)} USDT`;
-        shortPosition = null;
+          `ALL SHORTS closed · Realized PnL: ${(totalPnl >= 0 ? "+" : "")}${fmtUsdtShort(totalPnl)} USDT`;
       }
 
       updatePnL();
@@ -885,36 +914,66 @@
     function checkAutoClosePositions() {
       if (!currentPrice) return;
 
-      if (longPosition) {
-        const diffPct = (currentPrice - longPosition.entry) / longPosition.entry * 100;
-        if (diffPct >= 0.5) {
-          closePosition("long");
-          orderMessageEl.textContent += " (auto close TP long)";
-        } else if (diffPct <= -0.5) {
-          closePosition("long");
-          orderMessageEl.textContent += " (auto close SL long)";
+      // Longs
+      if (longPositions.length) {
+        const remaining = [];
+        let msgParts = [];
+        longPositions.forEach(pos => {
+          const diffPct = (currentPrice - pos.entry) / pos.entry * 100;
+          if (diffPct >= 0.5 || diffPct <= -0.5) {
+            const pnl    = diffPct / 100 * pos.entry * pos.qty * pos.lev;
+            const margin = (pos.qty * pos.entry) / pos.lev;
+            walletBalance += pnl;
+            usedMargin    -= margin;
+            const lastPriceStr =
+              priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
+            const flag = diffPct >= 0.5 ? "TP" : "SL";
+            addFillRow("long", pos.qty, lastPriceStr, (pos.strategy || "auto") + ` #${pos.id} ${flag}`);
+            msgParts.push(`#${pos.id} ${flag} ${pnl >= 0 ? "+" : ""}${fmtUsdtShort(pnl)}`);
+          } else {
+            remaining.push(pos);
+          }
+        });
+        longPositions = remaining;
+        if (msgParts.length) {
+          orderMessageEl.textContent = "Auto close longs: " + msgParts.join(" | ");
         }
       }
 
-      if (shortPosition) {
-        const diffPct = (shortPosition.entry - currentPrice) / shortPosition.entry * 100;
-        if (diffPct >= 0.5) {
-          closePosition("short");
-          orderMessageEl.textContent += " (auto close TP short)";
-        } else if (diffPct <= -0.5) {
-          closePosition("short");
-          orderMessageEl.textContent += " (auto close SL short)";
+      // Shorts
+      if (shortPositions.length) {
+        const remaining = [];
+        let msgParts = [];
+        shortPositions.forEach(pos => {
+          const diffPct = (pos.entry - currentPrice) / pos.entry * 100;
+          if (diffPct >= 0.5 || diffPct <= -0.5) {
+            const pnl    = diffPct / 100 * pos.entry * pos.qty * pos.lev;
+            const margin = (pos.qty * pos.entry) / pos.lev;
+            walletBalance += pnl;
+            usedMargin    -= margin;
+            const lastPriceStr =
+              priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
+            const flag = diffPct >= 0.5 ? "TP" : "SL";
+            addFillRow("short", pos.qty, lastPriceStr, (pos.strategy || "auto") + ` #${pos.id} ${flag}`);
+            msgParts.push(`#${pos.id} ${flag} ${pnl >= 0 ? "+" : ""}${fmtUsdtShort(pnl)}`);
+          } else {
+            remaining.push(pos);
+          }
+        });
+        shortPositions = remaining;
+        if (msgParts.length) {
+          orderMessageEl.textContent +=
+            (orderMessageEl.textContent ? " || " : "Auto close shorts: ") + msgParts.join(" | ");
         }
       }
+
+      updatePnL();
     }
 
     function liveAutoStep() {
       if (!liveAutoEnabled || !currentPrice) return;
 
-      // Close existing positions if TP/SL hit
       checkAutoClosePositions();
-
-      if (longPosition || shortPosition) return;
 
       let qty = parseFloat(qtyInput.value);
       if (!qty || qty <= 0) {
