@@ -375,7 +375,7 @@
       return ((last - first) / first) * 100;
     };
 
-    const getScalpStats = (windowSize = 15) => {
+    const getScalpStats = (windowSize = 20) => {  // 15 → 20
       const len = priceHistory.length;
       if (len < windowSize + 1) return null;
       const start = len - windowSize - 1;
@@ -394,45 +394,32 @@
       return { changePct, avgStep };
     };
 
-    // Basic scalping: direction + trend confluence
+    // ORIGINAL simple scalping % logic (sirf window 15 ticks)
     const updateScalpHintBasic = () => {
-      const scalpChange = getChangePct(10);  // micro
-      const shortChange = getChangePct(40);  // short-term
-      const longChange  = getChangePct(80);  // long-term
-
-      if (scalpChange == null || shortChange == null || longChange == null) {
+      const scalpChange = getChangePct(15); // pehle 10 tha, ab 15
+      if (scalpChange == null) {
         scalpHintEl.textContent = "Scalping: waiting for data…";
-        return;
-      }
-
-      const upAlign   = scalpChange > 0.2 && shortChange > 0 && longChange >= 0;
-      const downAlign = scalpChange < -0.2 && shortChange < 0 && longChange <= 0;
-
-      if (upAlign) {
-        if (scalpChange <= 0.8) {
-          scalpHintEl.textContent =
-            "Scalping: Trend up align hai; pullback pe small BUY scalp 5–10 min ke liye consider karo.";
-        } else {
-          scalpHintEl.textContent =
-            "Scalping: Strong uptrend; sirf dips pe BUY scalp, chase mat karo.";
-        }
-      } else if (downAlign) {
-        if (scalpChange >= -0.8) {
-          scalpHintEl.textContent =
-            "Scalping: Trend down align hai; bounce pe SHORT scalp 5–10 min ke liye socho.";
-        } else {
-          scalpHintEl.textContent =
-            "Scalping: Strong downtrend; sirf sharp bounce pe SHORT scalp, SL tight.";
-        }
+      } else if (scalpChange <= -0.15 && scalpChange > -0.8) {
+        scalpHintEl.textContent =
+          "Scalping: Chhota dip, BUY scalp 5–10 min ke liye consider kar sakte ho.";
+      } else if (scalpChange <= -0.8) {
+        scalpHintEl.textContent =
+          "Scalping: Strong dump, sirf experienced ho to BUY scalp with tight SL.";
+      } else if (scalpChange >= 0.15 && scalpChange < 0.8) {
+        scalpHintEl.textContent =
+          "Scalping: Chhota pump, SHORT scalp 5–10 min ke liye socho.";
+      } else if (scalpChange >= 0.8) {
+        scalpHintEl.textContent =
+          "Scalping: Strong pump, aggressive SHORT scalp possible but high risk.";
       } else {
         scalpHintEl.textContent =
-          "Scalping: Trend mixed; direction clear nahi, patience rakho.";
+          "Scalping: Bilkul flat, entry force mat karo.";
       }
     };
 
     // Volatility-based hint
     const updateScalpVolHint = () => {
-      const stats = getScalpStats(15);
+      const stats = getScalpStats(20);  // 15 → 20
       if (!stats) {
         scalpVolHintEl.textContent = "Scalping (volatility): waiting for data…";
         return;
@@ -466,10 +453,10 @@
       }
     };
 
-    // NEW: Range-based scalping hint (local support/resistance) [web:113][web:112]
+    // Range-based scalping hint (local support/resistance)
     const updateScalpRangeHint = () => {
       const len = priceHistory.length;
-      const windowSize = 30; // recent range
+      const windowSize = 40; // 30 → 40
       if (len < windowSize) {
         scalpRangeHintEl.textContent = "Scalping (range): waiting for range data…";
         return;
@@ -487,7 +474,7 @@
         return;
       }
 
-      const distFromLow  = (currentPrice - minP) / range; // 0 near low, 1 near high
+      const distFromLow  = (currentPrice - minP) / range;
       const distFromHigh = (maxP - currentPrice) / range;
 
       const shortChange = getChangePct(40);
@@ -498,7 +485,6 @@
       const isDownTrend = shortChange !== null && longChange !== null &&
                           shortChange < 0 && longChange <= 0;
 
-      // Near bottom of range
       if (distFromLow <= 0.2) {
         if (isUpTrend) {
           scalpRangeHintEl.textContent =
@@ -507,9 +493,7 @@
           scalpRangeHintEl.textContent =
             "Scalping (range): Range bottom ke paas; aggressive long scalp possible, lekin trend strong nahi, SL tight rakho.";
         }
-      }
-      // Near top of range
-      else if (distFromHigh <= 0.2) {
+      } else if (distFromHigh <= 0.2) {
         if (isDownTrend) {
           scalpRangeHintEl.textContent =
             "Scalping (range): Price recent range ke top ke paas + trend down; yahan se SHORT scalp idea banta hai.";
@@ -517,9 +501,7 @@
           scalpRangeHintEl.textContent =
             "Scalping (range): Range top ke paas; aggressive short scalp possible, lekin trend strong nahi, SL tight rakho.";
         }
-      }
-      // Middle of range
-      else {
+      } else {
         scalpRangeHintEl.textContent =
           "Scalping (range): Price range ke beech me; better hai bottom/top ke paas ka wait karo.";
       }
