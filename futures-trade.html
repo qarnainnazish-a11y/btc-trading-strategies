@@ -200,7 +200,7 @@
         </div>
       </h2>
       <div class="muted" style="margin-bottom:4px;">
-        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:21]
+        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:156]
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
@@ -218,10 +218,16 @@
         <button id="auto-bet-btn" class="btn btn-neutral">Auto Bet</button>
       </div>
 
+      <!-- Live auto trade controls -->
+      <div class="form-row">
+        <button id="start-live-btn" class="btn btn-long">Start Live Auto Trade</button>
+        <button id="stop-live-btn" class="btn btn-neutral">Stop Live Auto</button>
+      </div>
+
       <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Futures Order</h2>
         <div class="muted">
-          Market order in USDT-margined perpetuals. Quantity is in coin units (BTC, ETH, etc.). Leverage controls margin & PnL. [web:147][web:148]
+          Market order in USDT-margined perpetuals. Quantity is in coin units (BTC, ETH, etc.). Leverage controls margin & PnL. [web:154][web:156]
         </div>
 
         <div class="form-row">
@@ -262,7 +268,7 @@
     <section class="card">
       <h2>Futures Wallet</h2>
       <p class="muted" style="margin:0 0 6px;">
-        USDT-M isolated margin · real-time unrealized PnL. [web:147][web:148]
+        USDT-M isolated margin · real-time unrealized PnL. [web:156]
       </p>
 
       <div class="balance-grid">
@@ -357,8 +363,10 @@
     const priceHistory    = [];
     const priceStrHistory = [];
 
-    let longPosition  = null; // { qty, entry, lev, strategy? }
+    let longPosition  = null; // { qty, entry, lev, strategy }
     let shortPosition = null;
+
+    let liveAutoEnabled = false;
 
     const priceEl        = document.getElementById("price");
     const priceUpdatedEl = document.getElementById("price-updated");
@@ -397,6 +405,8 @@
 
     const autoStrategySelect = document.getElementById("auto-strategy");
     const autoBetBtn         = document.getElementById("auto-bet-btn");
+    const startLiveBtn       = document.getElementById("start-live-btn");
+    const stopLiveBtn        = document.getElementById("stop-live-btn");
 
     const fmtUsdtShort = x =>
       Number(x).toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -444,7 +454,7 @@
     const resetHints = () => {
       scalpHintEl.textContent      = "Scalping: waiting for data…";
       scalpVolHintEl.textContent   = "Scalping (volatility): waiting for data…";
-      scalpRangeHintEl.textContent = "Scalping (range): waiting for data…";
+      scalpRangeHintEl.textContent = "Scalping (range): waiting for range data…";
       shortHintEl.textContent      = "Short-term: waiting for data…";
       longHintEl.textContent       = "Long-term: waiting for data…";
     };
@@ -626,7 +636,7 @@
       updateShortLongHints();
     };
 
-    const fetchPrice = async () => {
+    async function fetchPrice() {
       try {
         const base = currentSymbol.replace(".P","").replace("_PERP","");
         const endpoint = "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + base;
@@ -650,12 +660,13 @@
         updatePnL();
         updateHints();
         updateMarginPreview();
+        liveAutoStep();
       } catch (err) {
         console.error(err);
         priceUpdatedEl.textContent =
           "Failed to fetch price (maybe invalid symbol or network).";
       }
-    };
+    }
 
     function updatePnL() {
       if (!currentPrice) {
@@ -869,6 +880,74 @@
       }
 
       openPosition(side, tag);
+    });
+
+    function checkAutoClosePositions() {
+      if (!currentPrice) return;
+
+      if (longPosition) {
+        const diffPct = (currentPrice - longPosition.entry) / longPosition.entry * 100;
+        if (diffPct >= 0.5) {
+          closePosition("long");
+          orderMessageEl.textContent += " (auto close TP long)";
+        } else if (diffPct <= -0.5) {
+          closePosition("long");
+          orderMessageEl.textContent += " (auto close SL long)";
+        }
+      }
+
+      if (shortPosition) {
+        const diffPct = (shortPosition.entry - currentPrice) / shortPosition.entry * 100;
+        if (diffPct >= 0.5) {
+          closePosition("short");
+          orderMessageEl.textContent += " (auto close TP short)";
+        } else if (diffPct <= -0.5) {
+          closePosition("short");
+          orderMessageEl.textContent += " (auto close SL short)";
+        }
+      }
+    }
+
+    function liveAutoStep() {
+      if (!liveAutoEnabled || !currentPrice) return;
+
+      // Close existing positions if TP/SL hit
+      checkAutoClosePositions();
+
+      if (longPosition || shortPosition) return;
+
+      let qty = parseFloat(qtyInput.value);
+      if (!qty || qty <= 0) {
+        qty = 0.001;
+        qtyInput.value = qty;
+        updateMarginPreview();
+      }
+      const lev = parseFloat(levSelect.value || "10");
+      const marginNeeded = (qty * currentPrice) / lev;
+      const avail = walletBalance - usedMargin;
+      if (marginNeeded > avail) {
+        orderMessageEl.textContent = "Live auto: not enough margin, skipping step.";
+        return;
+      }
+
+      const decision = decideAutoFromHints();
+      if (!decision) {
+        orderMessageEl.textContent = "Live auto: hints me clear direction nahi.";
+        return;
+      }
+
+      openPosition(decision.side, decision.tag + " (live)");
+    }
+
+    startLiveBtn.addEventListener("click", () => {
+      if (liveAutoEnabled) return;
+      liveAutoEnabled = true;
+      orderMessageEl.textContent = "Live auto trade started.";
+    });
+
+    stopLiveBtn.addEventListener("click", () => {
+      liveAutoEnabled = false;
+      orderMessageEl.textContent = "Live auto trade stopped.";
     });
 
     const parseUserSymbolInput = raw => {
