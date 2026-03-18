@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BTC Futures Paper Trading</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #111827;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #020617;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      font-size: 0.9rem;
+    }
+    .pill {
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      padding: 2px 8px;
+      font-size: 0.78rem;
+      color: #9ca3af;
+    }
+    main {
+      max-width: 1100px;
+      margin: 16px auto 40px;
+      padding: 0 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.15fr);
+      gap: 14px;
+    }
+    @media (max-width: 900px) {
+      main { grid-template-columns: minmax(0, 1fr); }
+    }
+    .card {
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      padding: 14px 16px;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.12), transparent 60%);
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      border-bottom: 1px solid #1f2937;
+      padding-bottom: 4px;
+    }
+    .muted { font-size: 0.85rem; color: #9ca3af; }
+    .price {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 4px 0;
+      word-break: break-all;
+    }
+    .chart-card {
+      grid-column: 1 / -1;
+      height: 420px;
+      padding: 0;
+      overflow: hidden;
+    }
+    .chart-inner { height: 100%; width: 100%; }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .row label {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    select, input {
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.85rem;
+    }
+    input:focus, select:focus {
+      outline: 1px solid #38bdf8;
+      border-color: #38bdf8;
+    }
+    .btn {
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .btn-long { background: #16a34a; color: #fff; }
+    .btn-short { background: #ef4444; color: #fff; }
+    .btn-close { background: #4b5563; color: #e5e7eb; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .panel {
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      padding: 8px 10px;
+      background: #020617;
+    }
+    .label-sm { font-size: 0.78rem; color: #9ca3af; }
+    .value-lg { font-size: 1rem; font-weight: 600; margin-top: 2px; }
+
+    .pnl-pos { color: #4ade80; }
+    .pnl-neg { color: #f97373; }
+
+    footer {
+      text-align: center;
+      padding: 10px;
+      font-size: 0.75rem;
+      color: #6b7280;
+      border-top: 1px solid #111827;
+      background: #020617;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">FUTURES PAPER</div>
+    <div class="pill">USDT-M Perps · Simulated</div>
+  </header>
+
+  <main>
+    <!-- CHART -->
+    <section class="card chart-card">
+      <div class="chart-inner">
+        <div class="tradingview-widget-container" style="height:100%; width:100%;">
+          <div id="tv_chart_container" style="height:100%; width:100%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEFT: PRICE + FUTURES CONTROLS -->
+    <section class="card">
+      <h2 style="display:flex; justify-content:space-between; align-items:center;">
+        <span id="pair-title">BTCUSDT Perpetual</span>
+        <select id="symbol-select">
+          <option value="BTCUSDT">BTCUSDT</option>
+          <option value="ETHUSDT">ETHUSDT</option>
+          <option value="BNBUSDT">BNBUSDT</option>
+          <option value="SOLUSDT">SOLUSDT</option>
+        </select>
+      </h2>
+      <div class="muted" style="margin-bottom:4px;">
+        Symbol with .P in API = USDT-M perpetual futures (Binance style). [web:21]
+      </div>
+      <div id="price" class="price">--</div>
+      <div class="muted" id="price-updated">Fetching...</div>
+
+      <div style="margin-top:14px; border-top:1px solid #1f2937; padding-top:10px;">
+        <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Futures Order</h2>
+        <div class="muted">Open Long / Open Short with leverage · Paper only, no real orders. [web:124][web:129]</div>
+
+        <div class="row" style="margin-top:8px;">
+          <label>Quantity (coin):</label>
+          <input id="fut-qty" type="number" step="0.0001" min="0" placeholder="e.g. 0.01" />
+        </div>
+
+        <div class="row">
+          <label>Leverage:</label>
+          <select id="fut-lev">
+            <option value="1">1x</option>
+            <option value="5">5x</option>
+            <option value="10" selected>10x</option>
+            <option value="20">20x</option>
+            <option value="50">50x</option>
+          </select>
+          <span class="muted">Margin = qty × price ÷ lev</span>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <button id="btn-open-long"  class="btn btn-long">Open Long</button>
+          <button id="btn-close-long" class="btn btn-close">Close Long</button>
+        </div>
+        <div class="row" style="margin-top:4px;">
+          <button id="btn-open-short"  class="btn btn-short">Open Short</button>
+          <button id="btn-close-short" class="btn btn-close">Close Short</button>
+        </div>
+
+        <div class="muted" id="fut-msg" style="margin-top:6px; min-height:18px;"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: FUTURES WALLET + POSITION -->
+    <section class="card">
+      <h2>Futures Wallet</h2>
+      <p class="muted" style="margin:0 0 6px;">
+        Isolated margin style simulation. [web:130][web:133]
+      </p>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="label-sm">Wallet Balance</div>
+          <div class="value-lg" id="fut-wallet">--</div>
+        </div>
+        <div class="panel">
+          <div class="label-sm">Available Margin</div>
+          <div class="value-lg" id="fut-available">--</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:8px;">
+        <div class="label-sm">Total Unrealized PnL</div>
+        <div class="value-lg" id="fut-upnl">--</div>
+        <div class="muted" id="fut-roe">ROE: --</div>
+      </div>
+
+      <h2 style="margin-top:16px;">Open Positions</h2>
+
+      <div class="panel">
+        <div class="label-sm">Long Position</div>
+        <div class="muted" id="long-desc">No long position.</div>
+        <div class="muted" id="long-pnl">PnL: --</div>
+      </div>
+
+      <div class="panel" style="margin-top:6px;">
+        <div class="label-sm">Short Position</div>
+        <div class="muted" id="short-desc">No short position.</div>
+        <div class="muted" id="short-pnl">PnL: --</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Futures Paper Trading · For learning only · PnL based on Binance futures price API formulas. [web:124][web:125]
+  </footer>
+
+  <!-- TradingView -->
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+    let tvWidget;
+    function initTradingView(symbolTv) {
+      if (tvWidget && tvWidget.remove) tvWidget.remove();
+      tvWidget = new TradingView.widget({
+        width: "100%",
+        height: "100%",
+        symbol: symbolTv,
+        interval: "1",
+        timezone: "Etc/UTC",
+        theme: "dark",
+        style: "1",
+        locale: "en",
+        toolbar_bg: "#020617",
+        enable_publishing: false,
+        hide_legend: false,
+        save_image: false,
+        container_id: "tv_chart_container"
+      });
+    }
+  </script>
+
+  <!-- Logic -->
+  <script>
+    const PRICE_HISTORY_LIMIT  = 200;
+    const FETCH_INTERVAL_MS    = 3000;
+
+    let baseSymbol   = "BTCUSDT";        // e.g. BTCUSDT
+    let futSymbol    = "BTCUSDT";        // API symbol for futures (we'll use same here) [web:21]
+    let tvSymbol     = "BINANCE:BTCUSDT";
+    let currentPrice = null;
+    const priceHistory = [];
+
+    // Futures wallet (sim)
+    let futWalletBalance   = 1000;   // starting USDT wallet
+    let futLockedMargin    = 0;      // margin locked in open positions
+    let futUnrealizedPnL   = 0;      // live
+    let futRealizedPnL     = 0;
+
+    // One position per side
+    let longPos  = null; // { size, entry, lev, margin }
+    let shortPos = null; // { size, entry, lev, margin }
+
+    const priceEl        = document.getElementById("price");
+    const priceUpdatedEl = document.getElementById("price-updated");
+    const symbolSelect   = document.getElementById("symbol-select");
+    const pairTitle      = document.getElementById("pair-title");
+
+    const futQtyInput    = document.getElementById("fut-qty");
+    const futLevSelect   = document.getElementById("fut-lev");
+    const futMsgEl       = document.getElementById("fut-msg");
+    const btnOpenLong    = document.getElementById("btn-open-long");
+    const btnCloseLong   = document.getElementById("btn-close-long");
+    const btnOpenShort   = document.getElementById("btn-open-short");
+    const btnCloseShort  = document.getElementById("btn-close-short");
+
+    const futWalletEl    = document.getElementById("fut-wallet");
+    const futAvailEl     = document.getElementById("fut-available");
+    const futUPnLEl      = document.getElementById("fut-upnl");
+    const futRoeEl       = document.getElementById("fut-roe");
+    const longDescEl     = document.getElementById("long-desc");
+    const longPnLEl      = document.getElementById("long-pnl");
+    const shortDescEl    = document.getElementById("short-desc");
+    const shortPnLEl     = document.getElementById("short-pnl");
+
+    const fmt2 = (x) => Number(x).toLocaleString("en-US", { maximumFractionDigits: 2 });
+    const fmt4 = (x) => Number(x).toLocaleString("en-US", { maximumFractionDigits: 4 });
+
+    function renderWallet() {
+      const available = futWalletBalance - futLockedMargin + futUnrealizedPnL;
+      futWalletEl.textContent  = fmt2(futWalletBalance) + " USDT";
+      futAvailEl.textContent   = fmt2(available) + " USDT";
+
+      const totalMargin = futLockedMargin || 1;
+      futUPnLEl.textContent = (futUnrealizedPnL >= 0 ? "+" : "") +
+                              fmt2(futUnrealizedPnL) + " USDT";
+      const roe = (futUnrealizedPnL / totalMargin) * 100;
+      futRoeEl.textContent = "ROE: " + fmt2(roe) + " %";
+
+      if (futUnrealizedPnL > 0) {
+        futUPnLEl.classList.add("pnl-pos");
+        futUPnLEl.classList.remove("pnl-neg");
+      } else if (futUnrealizedPnL < 0) {
+        futUPnLEl.classList.add("pnl-neg");
+        futUPnLEl.classList.remove("pnl-pos");
+      } else {
+        futUPnLEl.classList.remove("pnl-pos","pnl-neg");
+      }
+    }
+
+    function renderPositions() {
+      if (longPos) {
+        longDescEl.textContent =
+          `Size: ${fmt4(longPos.size)} ${baseSymbol.replace("USDT","")} @ ` +
+          `${fmt2(longPos.entry)} · Lev: ${longPos.lev}x · Margin: ${fmt2(longPos.margin)} USDT`;
+      } else {
+        longDescEl.textContent = "No long position.";
+      }
+
+      if (shortPos) {
+        shortDescEl.textContent =
+          `Size: ${fmt4(shortPos.size)} ${baseSymbol.replace("USDT","")} @ ` +
+          `${fmt2(shortPos.entry)} · Lev: ${shortPos.lev}x · Margin: ${fmt2(shortPos.margin)} USDT`;
+      } else {
+        shortDescEl.textContent = "No short position.";
+      }
+    }
+
+    function calcPnL() {
+      if (!currentPrice) {
+        futUnrealizedPnL = 0;
+        longPnLEl.textContent  = "PnL: --";
+        shortPnLEl.textContent = "PnL: --";
+        return;
+      }
+
+      let upnl = 0;
+
+      if (longPos) {
+        const pnl = (currentPrice - longPos.entry) * longPos.size * longPos.lev; // [web:125]
+        upnl += pnl;
+        longPnLEl.textContent = "PnL: " + (pnl >= 0 ? "+" : "") + fmt2(pnl) + " USDT";
+        if (pnl > 0) {
+          longPnLEl.classList.add("pnl-pos");
+          longPnLEl.classList.remove("pnl-neg");
+        } else if (pnl < 0) {
+          longPnLEl.classList.add("pnl-neg");
+          longPnLEl.classList.remove("pnl-pos");
+        } else {
+          longPnLEl.classList.remove("pnl-pos","pnl-neg");
+        }
+      } else {
+        longPnLEl.textContent = "PnL: --";
+        longPnLEl.classList.remove("pnl-pos","pnl-neg");
+      }
+
+      if (shortPos) {
+        const pnl = (shortPos.entry - currentPrice) * shortPos.size * shortPos.lev; // [web:125]
+        upnl += pnl;
+        shortPnLEl.textContent = "PnL: " + (pnl >= 0 ? "+" : "") + fmt2(pnl) + " USDT";
+        if (pnl > 0) {
+          shortPnLEl.classList.add("pnl-pos");
+          shortPnLEl.classList.remove("pnl-neg");
+        } else if (pnl < 0) {
+          shortPnLEl.classList.add("pnl-neg");
+          shortPnLEl.classList.remove("pnl-pos");
+        } else {
+          shortPnLEl.classList.remove("pnl-pos","pnl-neg");
+        }
+      } else {
+        shortPnLEl.textContent = "PnL: --";
+        shortPnLEl.classList.remove("pnl-pos","pnl-neg");
+      }
+
+      futUnrealizedPnL = upnl;
+      renderWallet();
+    }
+
+    async function fetchPrice() {
+      try {
+        const endpoint = "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + futSymbol; // futures [web:21]
+        const res  = await fetch(endpoint);
+        const data = await res.json();
+        currentPrice = parseFloat(data.price);
+
+        priceEl.textContent = data.price + " USDT";
+        const now = new Date();
+        priceUpdatedEl.textContent = "Last update: " + now.toLocaleTimeString();
+
+        priceHistory.push(currentPrice);
+        if (priceHistory.length > PRICE_HISTORY_LIMIT) priceHistory.shift();
+
+        calcPnL();
+      } catch (err) {
+        console.error(err);
+        priceUpdatedEl.textContent = "Failed to fetch futures price.";
+      }
+    }
+
+    function openLong() {
+      futMsgEl.textContent = "";
+      if (!currentPrice) {
+        futMsgEl.textContent = "Price not loaded yet.";
+        return;
+      }
+      const qty = parseFloat(futQtyInput.value);
+      if (!qty || qty <= 0) {
+        futMsgEl.textContent = "Enter a valid quantity.";
+        return;
+      }
+      const lev = parseFloat(futLevSelect.value) || 1;
+      const notional = qty * currentPrice;
+      const margin   = notional / lev;
+
+      const available = futWalletBalance - futLockedMargin + futUnrealizedPnL;
+      if (margin > available) {
+        futMsgEl.textContent = "Not enough margin to open long.";
+        return;
+      }
+
+      longPos = {
+        size: qty,
+        entry: currentPrice,
+        lev,
+        margin
+      };
+      futLockedMargin += margin;
+      futUnrealizedPnL = 0;
+      futMsgEl.textContent = "Opened LONG " + fmt4(qty) + " @ " + fmt2(currentPrice);
+      renderPositions();
+      calcPnL();
+    }
+
+    function openShort() {
+      futMsgEl.textContent = "";
+      if (!currentPrice) {
+        futMsgEl.textContent = "Price not loaded yet.";
+        return;
+      }
+      const qty = parseFloat(futQtyInput.value);
+      if (!qty || qty <= 0) {
+        futMsgEl.textContent = "Enter a valid quantity.";
+        return;
+      }
+      const lev = parseFloat(futLevSelect.value) || 1;
+      const notional = qty * currentPrice;
+      const margin   = notional / lev;
+
+      const available = futWalletBalance - futLockedMargin + futUnrealizedPnL;
+      if (margin > available) {
+        futMsgEl.textContent = "Not enough margin to open short.";
+        return;
+      }
+
+      shortPos = {
+        size: qty,
+        entry: currentPrice,
+        lev,
+        margin
+      };
+      futLockedMargin += margin;
+      futUnrealizedPnL = 0;
+      futMsgEl.textContent = "Opened SHORT " + fmt4(qty) + " @ " + fmt2(currentPrice);
+      renderPositions();
+      calcPnL();
+    }
+
+    function closeLong() {
+      futMsgEl.textContent = "";
+      if (!longPos) {
+        futMsgEl.textContent = "No long to close.";
+        return;
+      }
+      if (!currentPrice) {
+        futMsgEl.textContent = "Price not loaded yet.";
+        return;
+      }
+      const pnl = (currentPrice - longPos.entry) * longPos.size * longPos.lev; // [web:125]
+      futWalletBalance += pnl;   // realized into wallet
+      futRealizedPnL += pnl;
+
+      futLockedMargin -= longPos.margin;
+      if (futLockedMargin < 0) futLockedMargin = 0;
+
+      futMsgEl.textContent =
+        "Closed LONG with " + (pnl >= 0 ? "profit " : "loss ") + fmt2(pnl) + " USDT.";
+      longPos = null;
+      futUnrealizedPnL = 0;
+      renderPositions();
+      renderWallet();
+    }
+
+    function closeShort() {
+      futMsgEl.textContent = "";
+      if (!shortPos) {
+        futMsgEl.textContent = "No short to close.";
+        return;
+      }
+      if (!currentPrice) {
+        futMsgEl.textContent = "Price not loaded yet.";
+        return;
+      }
+      const pnl = (shortPos.entry - currentPrice) * shortPos.size * shortPos.lev; // [web:125]
+      futWalletBalance += pnl;
+      futRealizedPnL += pnl;
+
+      futLockedMargin -= shortPos.margin;
+      if (futLockedMargin < 0) futLockedMargin = 0;
+
+      futMsgEl.textContent =
+        "Closed SHORT with " + (pnl >= 0 ? "profit " : "loss ") + fmt2(pnl) + " USDT.";
+      shortPos = null;
+      futUnrealizedPnL = 0;
+      renderPositions();
+      renderWallet();
+    }
+
+    function updateSymbol(symbol) {
+      baseSymbol = symbol;
+      futSymbol  = symbol; // same symbol on USDT-M futures endpoint [web:21]
+      tvSymbol   = "BINANCE:" + symbol;
+      pairTitle.textContent = symbol + " Perpetual";
+
+      currentPrice = null;
+      priceHistory.length = 0;
+
+      longPos = null;
+      shortPos = null;
+      futLockedMargin  = 0;
+      futUnrealizedPnL = 0;
+      futMsgEl.textContent = "";
+
+      renderPositions();
+      renderWallet();
+      initTradingView(tvSymbol);
+      fetchPrice();
+    }
+
+    btnOpenLong.addEventListener("click", openLong);
+    btnOpenShort.addEventListener("click", openShort);
+    btnCloseLong.addEventListener("click", closeLong);
+    btnCloseShort.addEventListener("click", closeShort);
+
+    symbolSelect.addEventListener("change", () => {
+      updateSymbol(symbolSelect.value);
+    });
+
+    // Init
+    renderWallet();
+    renderPositions();
+    initTradingView(tvSymbol);
+    fetchPrice();
+    setInterval(fetchPrice, FETCH_INTERVAL_MS);
+  </script>
+</body>
+</html>
