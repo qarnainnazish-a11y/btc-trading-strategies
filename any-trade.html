@@ -212,6 +212,7 @@
       <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Strategy Hints</h2>
         <div class="muted" id="scalp-hint">Scalping: waiting for data…</div>
+        <div class="muted" id="scalp-vol-hint">Scalping (volatility): waiting for data…</div>
         <div class="muted" id="short-hint">Short-term: waiting for data…</div>
         <div class="muted" id="long-hint">Long-term: waiting for data…</div>
       </div>
@@ -234,7 +235,7 @@
           <div class="balance-value" id="coin-balance">--</div>
         </div>
       </div>
-      <div class="balance-item" style="margin-top:8px%;">
+      <div class="balance-item" style="margin-top:8px;">
         <div class="balance-label">Total Value (USDT)</div>
         <div class="balance-value" id="total-value">--</div>
       </div>
@@ -280,8 +281,8 @@
   <!-- Logic -->
   <script>
     const INITIAL_USDT_BALANCE = 10000;
-    const PRICE_HISTORY_LIMIT  = 120;   // zyada history, taaki windows kaam karein
-    const FETCH_INTERVAL_MS    = 3000;
+    const PRICE_HISTORY_LIMIT  = 120;
+    const FETCH_INTERVAL_MS    = 3000;   // 3 seconds
 
     let currentSymbol   = "BTCUSDT";          // BTCUSDT or BTCUSDT.P
     let currentTvSymbol = "BINANCE:BTCUSDT";
@@ -290,7 +291,7 @@
     let usdtBalance  = INITIAL_USDT_BALANCE;
     let coinBalance  = 0;
     let currentPrice = null;
-    const priceHistory = [];
+    const priceHistory   = [];
     const priceStrHistory = [];
 
     const priceEl        = document.getElementById("price");
@@ -304,9 +305,10 @@
     const orderMessageEl = document.getElementById("order-message");
     const ordersListEl   = document.getElementById("orders-list");
 
-    const scalpHintEl = document.getElementById("scalp-hint");
-    const shortHintEl = document.getElementById("short-hint");
-    const longHintEl  = document.getElementById("long-hint");
+    const scalpHintEl     = document.getElementById("scalp-hint");
+    const scalpVolHintEl  = document.getElementById("scalp-vol-hint");
+    const shortHintEl     = document.getElementById("short-hint");
+    const longHintEl      = document.getElementById("long-hint");
 
     const symbolSelect    = document.getElementById("symbol-select");
     const pairTitle       = document.getElementById("pair-title");
@@ -354,12 +356,12 @@
     };
 
     const resetHints = () => {
-      scalpHintEl.textContent = "Scalping: waiting for data…";
-      shortHintEl.textContent = "Short-term: waiting for data…";
-      longHintEl.textContent  = "Long-term: waiting for data…";
+      scalpHintEl.textContent    = "Scalping: waiting for data…";
+      scalpVolHintEl.textContent = "Scalping (volatility): waiting for data…";
+      shortHintEl.textContent    = "Short-term: waiting for data…";
+      longHintEl.textContent     = "Long-term: waiting for data…";
     };
 
-    // generic % change helper
     const getChangePct = windowSize => {
       if (priceHistory.length < 2) return null;
       const len        = priceHistory.length;
@@ -370,7 +372,7 @@
       return ((last - first) / first) * 100;
     };
 
-    // scalping ke liye price move + volatility [web:57][web:76]
+    // Volatility stats for scalping [web:57]
     const getScalpStats = (windowSize = 15) => {
       const len = priceHistory.length;
       if (len < windowSize + 1) return null;
@@ -386,48 +388,72 @@
         const diffPct = Math.abs((slice[i] - slice[i-1]) / slice[i-1] * 100);
         sumAbs += diffPct;
       }
-      const avgStep = sumAbs / (slice.length - 1); // approx volatility in %
+      const avgStep = sumAbs / (slice.length - 1);
       return { changePct, avgStep };
     };
 
-    const updateScalpHint = () => {
+    // Original simple scalping hint (direction only)
+    const updateScalpHintBasic = () => {
+      const scalpChange = getChangePct(10); // ~10 ticks
+      if (scalpChange == null) {
+        scalpHintEl.textContent = "Scalping: waiting for data…";
+      } else if (scalpChange <= -0.15 && scalpChange > -0.8) {
+        scalpHintEl.textContent =
+          "Scalping: Chhota dip, BUY scalp 5–10 min ke liye consider kar sakte ho.";
+      } else if (scalpChange <= -0.8) {
+        scalpHintEl.textContent =
+          "Scalping: Strong dump, sirf experienced ho to BUY scalp with tight SL.";
+      } else if (scalpChange >= 0.15 && scalpChange < 0.8) {
+        scalpHintEl.textContent =
+          "Scalping: Chhota pump, SHORT scalp 5–10 min ke liye socho.";
+      } else if (scalpChange >= 0.8) {
+        scalpHintEl.textContent =
+          "Scalping: Strong pump, aggressive SHORT scalp possible but high risk.";
+      } else {
+        scalpHintEl.textContent =
+          "Scalping: Bilkul flat, entry force mat karo.";
+      }
+    };
+
+    // New volatility-based scalping hint
+    const updateScalpVolHint = () => {
       const stats = getScalpStats(15);
       if (!stats) {
-        scalpHintEl.textContent = "Scalping: waiting for volatility data…";
+        scalpVolHintEl.textContent = "Scalping (volatility): waiting for data…";
         return;
       }
       const { changePct, avgStep } = stats;
 
-      const highVol = avgStep > 0.25; // very choppy token
+      const highVol = avgStep > 0.25;
       const midVol  = avgStep > 0.1 && avgStep <= 0.25;
 
       if (!midVol && !highVol) {
-        scalpHintEl.textContent =
-          "Scalping: Volatility low; clear setup ka wait karo, random entries avoid karo.";
+        scalpVolHintEl.textContent =
+          "Scalping (volatility): Volatility low; clear setup ka wait karo, random entries avoid karo.";
         return;
       }
 
       if (changePct > 0.4 && highVol) {
-        scalpHintEl.textContent =
-          "Scalping: Strong up move + high volatility; sirf pullback pe small BUY scalp 3–10 min, tight SL ke saath.";
+        scalpVolHintEl.textContent =
+          "Scalping (volatility): Strong up move + high volatility; sirf pullback pe small BUY scalp 3–10 min, tight SL.";
       } else if (changePct > 0.2 && midVol) {
-        scalpHintEl.textContent =
-          "Scalping: Mild uptrend; pullback ya support ke paas BUY scalp, quick target rakho.";
+        scalpVolHintEl.textContent =
+          "Scalping (volatility): Mild uptrend + decent volatility; pullback/support pe BUY scalp.";
       } else if (changePct < -0.4 && highVol) {
-        scalpHintEl.textContent =
-          "Scalping: Strong dump + high volatility; bounce pe SHORT scalp possible, lekin SL recent high ke upar rakho.";
+        scalpVolHintEl.textContent =
+          "Scalping (volatility): Strong dump + high volatility; bounce pe SHORT scalp, SL recent high ke upar.";
       } else if (changePct < -0.2 && midVol) {
-        scalpHintEl.textContent =
-          "Scalping: Mild downtrend; chhote bounce pe SHORT scalp, profit jaldi book karo.";
+        scalpVolHintEl.textContent =
+          "Scalping (volatility): Mild downtrend; chhote bounce pe SHORT scalp, profit jaldi book karo.";
       } else {
-        scalpHintEl.textContent =
-          "Scalping: Direction clear nahi; sirf extremes (support/resistance) pe scalp socho ya phir wait karo.";
+        scalpVolHintEl.textContent =
+          "Scalping (volatility): Direction mixed; sirf extremes (support/resistance) pe scalp socho ya wait karo.";
       }
     };
 
     const updateShortLongHints = () => {
-      const shortChange = getChangePct(40);  // ~40 ticks (10 min)
-      const longChange  = getChangePct(80);  // ~80 ticks (20+ min)
+      const shortChange = getChangePct(40);  // ~short-term
+      const longChange  = getChangePct(80);  // ~long-term
 
       if (shortChange == null) {
         shortHintEl.textContent = "Short-term: waiting for data…";
@@ -457,7 +483,8 @@
     };
 
     const updateHints = () => {
-      updateScalpHint();
+      updateScalpHintBasic();
+      updateScalpVolHint();
       updateShortLongHints();
     };
 
