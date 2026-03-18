@@ -220,7 +220,7 @@
         </div>
       </h2>
       <div class="muted" style="margin-bottom:4px;">
-        Paste TradingView link or type symbol (e.g. BTCUSDT, pepe/usdt). Uses Binance spot price + TradingView chart.
+        Paste TradingView link or type symbol (e.g. BTCUSDT, pepe/usdt). Futures price via Binance USDT-M. [web:21]
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
@@ -320,7 +320,7 @@
     const FETCH_INTERVAL_MS = 15000;
 
     // coins
-    let currentSymbol   = "BTCUSDT";          // Binance REST symbol
+    let currentSymbol   = "BTCUSDT";          // Futures REST symbol base
     let currentTvSymbol = "BINANCE:BTCUSDT";  // TradingView symbol
     let currentBaseCoin = "BTC";              // for labels
 
@@ -414,7 +414,6 @@
       const first = priceHistory[0];
       const changePct = ((last - first) / first) * 100;
 
-      // Scalping (1–10 min)
       if (changePct <= -0.2 && changePct > -1.2) {
         scalpHintEl.textContent =
           "Scalping: Abhi BUY scalp try kar sakte ho 5–10 min ke liye (small dip pickup).";
@@ -432,7 +431,6 @@
           "Scalping: Bilkul flat move, entry force mat karo.";
       }
 
-      // Short‑term (hours)
       if (changePct > 1.5) {
         shortHintEl.textContent =
           "Short-term: Strong up move; abhi BUY late ho sakta hai, pullback 4–12 hours ke liye wait karo.";
@@ -444,7 +442,6 @@
           "Short-term: Sideways zone; range trade ya no-trade zone.";
       }
 
-      // Long‑term (2+ din)
       if (changePct > 3) {
         longHintEl.textContent =
           "Long-term (2+ din): Structure bullish lag raha hai; abhi fresh SHORT risky ho sakta hai.";
@@ -457,10 +454,14 @@
       }
     }
 
+    // Futures price fetch [web:21]
     async function fetchPrice() {
       try {
+        // currentSymbol e.g. "BTCUSDT" or "ETHUSDT.P" -> futures endpoint expects base like "BTCUSDT" [web:21]
+        const futSymbol = currentSymbol.replace(".P", "").replace("_PERP", "");
+
         const res = await fetch(
-          "https://api.binance.com/api/v3/ticker/price?symbol=" + currentSymbol
+          "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + futSymbol
         );
         const data = await res.json();
         const price = parseFloat(data.price);
@@ -528,25 +529,22 @@
       qtyInput.value = "";
     }
 
-    // TV link + symbol parser
+    // Parse TradingView URL or raw symbol [web:13][web:24][web:18]
     function parseUserSymbolInput(raw) {
       if (!raw) return null;
       let s = raw.trim();
 
-      // Agar TradingView URL hai [web:13][web:24]
       if (s.startsWith("http")) {
         try {
           const url = new URL(s);
 
-          // Case 1: ?tvwidgetsymbol=BINANCE:BTCUSDT
           const tvParam = url.searchParams.get("tvwidgetsymbol");
           if (tvParam) {
             const parts = tvParam.split(":");
-            const tvSymbol = parts[parts.length - 1];
+            const tvSymbol = parts[parts.length - 1]; // e.g. ETHUSDT.P
             return tvSymbol.toUpperCase();
           }
 
-          // Case 2: ?symbol=BINANCE:BTCUSDT
           const symbolParam = url.searchParams.get("symbol");
           if (symbolParam) {
             const parts = symbolParam.split(":");
@@ -554,18 +552,14 @@
             return sym.toUpperCase();
           }
 
-          // Fallback: URL hi diya hai but params nahi; normal handling pe jayega
           s = url.pathname;
-        } catch (e) {
-          // invalid URL, ignore and fall through
-        }
+        } catch (e) {}
       }
 
-      // Normal symbol handling (BTC, btcusdt, btc/usdt, pepeusdt, etc.) [web:18]
       s = s.toUpperCase();
       s = s.replace(/\s+/g, "");
       s = s.replace("/", "");
-      if (!s.endsWith("USDT")) {
+      if (!s.endsWith("USDT") && !s.endsWith("USDT.P")) {
         s = s + "USDT";
       }
       return s;
@@ -574,15 +568,15 @@
     function updateSymbol(symbol) {
       currentSymbol = symbol;
       currentTvSymbol = "BINANCE:" + symbol;
-      currentBaseCoin = symbol.replace("USDT", "");
+      currentBaseCoin = symbol.replace("USDT.P", "").replace("USDT", "");
 
       const label = currentBaseCoin + "/USDT";
       pairTitle.textContent = label + " Price";
 
       let found = false;
       for (const opt of symbolSelect.options) {
-        if (opt.value === symbol) {
-          symbolSelect.value = symbol;
+        if (opt.value === symbol.replace(".P","")) {
+          symbolSelect.value = opt.value;
           found = true;
           break;
         }
@@ -619,7 +613,7 @@
     symbolSearchBtn.addEventListener("click", () => {
       const parsed = parseUserSymbolInput(symbolSearch.value);
       if (!parsed) {
-        orderMessageEl.textContent = "Paste a TradingView link or enter symbol like BTCUSDT / pepe/usdt.";
+        orderMessageEl.textContent = "Paste a TradingView link or enter symbol like BTCUSDT / BTCUSDT.P / pepe/usdt.";
         return;
       }
       orderMessageEl.textContent = "";
