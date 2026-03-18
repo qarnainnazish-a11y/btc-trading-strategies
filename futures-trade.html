@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>BTC Futures Paper Trading</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
@@ -13,314 +13,338 @@
       background: #020617;
       color: #e5e7eb;
     }
-    .page {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-    h1 {
-      font-size: 24px;
-      margin: 0 0 4px;
-    }
-    h2 {
-      font-size: 16px;
-      margin: 16px 0 8px;
-      border-bottom: 1px solid #1f2937;
-      padding-bottom: 4px;
-    }
-    .muted {
-      color: #9ca3af;
-      font-size: 13px;
-    }
-    .row {
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #111827;
       display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      margin-top: 16px;
-    }
-    .card {
+      justify-content: space-between;
+      align-items: center;
       background: #020617;
-      border-radius: 12px;
-      border: 1px solid #1f2937;
-      padding: 12px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    .left { flex: 1 1 380px; min-width: 0; }
-    .right { flex: 1 1 320px; max-width: 360px; }
-    .price-line {
-      font-size: 20px;
-      margin-top: 8px;
-    }
-    .label {
-      font-size: 13px;
-      color: #9ca3af;
-      margin-bottom: 2px;
-    }
-    .value {
-      font-size: 14px;
-      margin-bottom: 6px;
-    }
-    input[type="number"],
-    input[type="text"],
-    select {
-      width: 100%;
-      background: #020617;
-      border-radius: 8px;
-      border: 1px solid #374151;
-      color: #e5e7eb;
-      padding: 6px 8px;
-      font-size: 14px;
-      outline: none;
-    }
-    input[type="number"]:focus,
-    input[type="text"]:focus,
-    select:focus {
-      border-color: #2563eb;
-    }
-    .btn-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
-    button {
-      border-radius: 999px;
-      border: 1px solid #1f2937;
-      padding: 6px 12px;
-      font-size: 13px;
-      cursor: pointer;
-      background: #020617;
-      color: #e5e7eb;
-      transition: background 0.12s ease, border-color 0.12s ease, transform 0.06s ease;
-    }
-    button:hover:not(:disabled) {
-      background: #111827;
-      transform: translateY(-0.5px);
-    }
-    button.primary {
-      background: #16a34a;
-      border-color: #15803d;
-    }
-    button.primary:hover:not(:disabled) {
-      background: #15803d;
-    }
-    button.danger {
-      background: #b91c1c;
-      border-color: #7f1d1d;
-    }
-    button.danger:hover:not(:disabled) {
-      background: #991b1b;
-    }
-    button.secondary {
-      background: #111827;
-    }
-    button:disabled {
-      opacity: 0.5;
-      cursor: default;
-      transform: none;
-    }
-    .pill-row {
-      display: inline-flex;
-      gap: 4px;
-      margin-top: 6px;
-      flex-wrap: wrap;
+    .logo {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      font-size: 0.9rem;
     }
     .pill {
       border-radius: 999px;
       border: 1px solid #1f2937;
-      padding: 3px 8px;
-      font-size: 12px;
-      cursor: pointer;
-      background: #020617;
+      padding: 2px 8px;
+      font-size: 0.78rem;
       color: #9ca3af;
     }
-    .pill.active {
-      background: #111827;
-      color: #e5e7eb;
-    }
-    .wallet-row {
+    main {
+      max-width: 1100px;
+      margin: 16px auto 40px;
+      padding: 0 12px;
       display: grid;
-      grid-template-columns: auto auto;
-      gap: 4px 8px;
-      font-size: 13px;
-      margin-top: 4px;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr);
+      gap: 14px;
     }
-    .wallet-label { color: #9ca3af; }
-    .wallet-value { text-align: right; }
+    @media (max-width: 900px) {
+      main { grid-template-columns: minmax(0, 1fr); }
+    }
+    .card {
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      padding: 14px 16px;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.12), transparent 60%);
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      border-bottom: 1px solid #1f2937;
+      padding-bottom: 4px;
+    }
+    .muted { font-size: 0.85rem; color: #9ca3af; }
+    .price {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 4px 0;
+      word-break: break-all;
+    }
+    .chart-card {
+      grid-column: 1 / -1;
+      height: 420px;
+      padding: 0;
+      overflow: hidden;
+    }
+    .chart-inner { height: 100%; width: 100%; }
+    .balance-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .balance-item {
+      background: #020617;
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid #1f2937;
+    }
+    .balance-label { font-size: 0.8rem; color: #9ca3af; }
+    .balance-value { font-size: 1rem; font-weight: 600; margin-top: 2px; }
+    .form-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .form-row input, .form-row select {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.9rem;
+    }
+    .form-row input:focus, .form-row select:focus {
+      outline: 1px solid #38bdf8;
+      border-color: #38bdf8;
+    }
+    .btn {
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .btn-buy { background: #16a34a; color: #fff; }
+    .btn-sell { background: #ef4444; color: #fff; }
+    .btn-neutral { background: #111827; color: #e5e7eb; }
+    .btn:disabled { opacity: 0.6; cursor: default; }
+    .orders {
+      max-height: 260px;
+      overflow-y: auto;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      background: #020617;
+    }
+    .order-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 10px;
+      font-size: 0.86rem;
+      border-bottom: 1px solid #030712;
+    }
+    .order-row:last-child { border-bottom: none; }
+    .order-side-long { color: #4ade80; font-weight: 600; }
+    .order-side-short { color: #fca5a5; font-weight: 600; }
     .pnl-positive { color: #22c55e; }
     .pnl-negative { color: #ef4444; }
-    a {
-      color: #60a5fa;
-      text-decoration: none;
-    }
-    a:hover { text-decoration: underline; }
-    @media (max-width: 900px) { .right { max-width: 100%; } }
-    iframe {
-      border-radius: 12px;
-      border: 1px solid #1f2937;
-      width: 100%;
-      height: 420px;
+    footer {
+      text-align: center;
+      padding: 10px;
+      font-size: 0.75rem;
+      color: #6b7280;
+      border-top: 1px solid #111827;
+      background: #020617;
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-      <div>
-        <h1>FUTURES PAPER</h1>
-        <div class="muted">USDT-M Perps · Simulated</div>
-      </div>
-      <div class="muted">
-        <a href="any-trade.html">← Back to Spot paper trading</a>
-      </div>
+  <header>
+    <div class="logo">FUTURES PAPER</div>
+    <div class="pill">
+      USDT-M Perps · Simulated ·
+      <a href="any-trade.html" style="color:#38bdf8; text-decoration:none; margin-left:4px;">
+        Spot mode →
+      </a>
     </div>
+  </header>
 
-    <div class="row">
-      <div class="card left">
-        <div class="label">Chart interval</div>
-        <div class="pill-row" id="interval-row">
-          <button class="pill active" data-interval="1">1 minute</button>
-          <button class="pill" data-interval="30">30 minutes</button>
-          <button class="pill" data-interval="60">1 hour</button>
-        </div>
-
-        <div style="margin-top:8px;">
-          <iframe
-            id="tv-iframe"
-            src="https://s.tradingview.com/widgetembed/?symbol=BINANCE:BTCUSDT.P&interval=1&theme=dark&style=1&hide_side_toolbar=true&withdateranges=false&hide_volume=true&allow_symbol_change=false&save_image=false"
-            loading="lazy"
-            title="TradingView Chart"
-          ></iframe>
-        </div>
-
-        <div style="margin-top:8px;">
-          <div class="label">BTC/USDT Price source</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-            <input
-              id="tv-link-input"
-              type="text"
-              placeholder="Paste TV link or type symbol (e.g. BTCUSDT.P, ETHUSDT.P)"
-              style="flex:1;min-width:180px;"
-              aria-label="Paste TradingView link or type symbol"
-            />
-            <button id="tv-link-go" class="secondary">Go</button>
-          </div>
-          <div class="muted" style="margin-top:4px;">
-            Paste TradingView chart link ya sirf symbol. “.P” → Binance futures price, warna normal perpetual symbol. [web:21]
-          </div>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap;">
-          <div class="label" style="margin-bottom:0;">Quick symbol</div>
-          <select id="symbol-select" aria-label="Perpetual symbol">
-            <option value="BTCUSDT">BTCUSDT</option>
-            <option value="ETHUSDT">ETHUSDT</option>
-            <option value="BNBUSDT">BNBUSDT</option>
-            <option value="SOLUSDT">SOLUSDT</option>
-          </select>
-        </div>
-
-        <div class="muted" style="margin-top:4px;">
-          Symbol with .P in API = USDT-M perpetual futures (Binance style). [web:21]
-        </div>
-
-        <div class="price-line" id="price-line">-- USDT</div>
-        <div class="muted" id="last-update">Last update: --</div>
-
-        <div style="margin-top:14px; border-top:1px solid #1f2937; padding-top:10px;">
-          <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Strategy Hints</h2>
-          <div class="muted" id="scalp-hint">Scalping: waiting for data…</div>
-          <div class="muted" id="scalp-vol-hint">Scalping (volatility): waiting for data…</div>
-          <div class="muted" id="scalp-range-hint">Scalping (range): waiting for range data…</div>
-          <div class="muted" id="short-hint">Short-term: waiting for data…</div>
-          <div class="muted" id="long-hint">Long-term: waiting for data…</div>
+  <main>
+    <!-- TradingView chart (perps) -->
+    <section class="card chart-card">
+      <div class="chart-inner">
+        <div class="tradingview-widget-container" style="height:100%; width:100%;">
+          <div id="tv_chart_container" style="height:100%; width:100%;"></div>
         </div>
       </div>
+    </section>
 
-      <div class="card right">
-        <h2>Futures Order</h2>
+    <!-- Left: Price + futures order form -->
+    <section class="card">
+      <h2 style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center;">
+        <span id="pair-title">BTC/USDT Perp Price</span>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <select id="symbol-select"
+                  style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937;">
+            <option value="BTCUSDT" data-tv="BINANCE:BTCUSDT.P">BTC/USDT Perp</option>
+            <option value="ETHUSDT" data-tv="BINANCE:ETHUSDT.P">ETH/USDT Perp</option>
+            <option value="BNBUSDT" data-tv="BINANCE:BNBUSDT.P">BNB/USDT Perp</option>
+            <option value="SOLUSDT" data-tv="BINANCE:SOLUSDT.P">SOL/USDT Perp</option>
+          </select>
+          <input
+            id="symbol-search"
+            type="text"
+            placeholder="TV link or symbol (BTCUSDT.P, ETHUSDT.P)"
+            style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937; min-width:170px;"
+          />
+          <button id="symbol-search-btn" class="btn btn-neutral" style="font-size:0.78rem; padding:4px 8px;">
+            Go
+          </button>
+        </div>
+      </h2>
+      <div class="muted" style="margin-bottom:4px;">
+        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:18][web:21]
+      </div>
+      <div id="price" class="price">--</div>
+      <div class="muted" id="price-updated">Fetching...</div>
+
+      <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
+        <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Futures Order</h2>
         <div class="muted">
-          Open Long / Open Short with leverage · Paper only, no real orders. [web:124][web:129]
+          Market order, USDT-margined perpetuals. Leverage controls margin & PnL. [web:147][web:148]
         </div>
-
-        <div style="margin-top:8px;">
-          <div class="label">Quantity (coin)</div>
-          <input id="qty-input" type="number" step="0.0001" placeholder="e.g. 0.01" aria-label="e.g. 0.01" />
+        <div class="form-row">
+          <input id="qty-input" type="number" step="0.0001" min="0" placeholder="Quantity (e.g. 0.001)" />
         </div>
-
-        <div style="margin-top:8px;">
-          <div class="label">Leverage</div>
-          <select id="lev-select" aria-label="Leverage">
+        <div class="form-row">
+          <select id="lev-select">
             <option value="1">1x</option>
             <option value="5">5x</option>
             <option value="10" selected>10x</option>
             <option value="20">20x</option>
             <option value="50">50x</option>
           </select>
+          <span class="muted" id="margin-hint" style="flex:2; font-size:0.8rem;">
+            Margin = qty × price ÷ lev
+          </span>
         </div>
-
-        <div class="muted" style="margin-top:4px;" id="margin-line">
-          Margin = qty × price ÷ lev
+        <div class="form-row">
+          <button id="open-long-btn" class="btn btn-buy">Open Long</button>
+          <button id="close-long-btn" class="btn btn-neutral">Close Long</button>
+          <button id="open-short-btn" class="btn btn-sell">Open Short</button>
+          <button id="close-short-btn" class="btn btn-neutral">Close Short</button>
         </div>
+        <div class="muted" id="order-message" style="margin-top:6px; min-height:18px;"></div>
+      </div>
 
-        <div class="btn-row">
-          <button id="open-long" class="primary">Open Long</button>
-          <button id="close-long" class="secondary">Close Long</button>
-          <button id="open-short" class="danger">Open Short</button>
-          <button id="close-short" class="secondary">Close Short</button>
+      <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
+        <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Strategy Hints</h2>
+        <div class="muted" id="scalp-hint">Scalping: waiting for data…</div>
+        <div class="muted" id="scalp-vol-hint">Scalping (volatility): waiting for data…</div>
+        <div class="muted" id="scalp-range-hint">Scalping (range): waiting for data…</div>
+        <div class="muted" id="short-hint">Short-term: waiting for data…</div>
+        <div class="muted" id="long-hint">Long-term: waiting for data…</div>
+      </div>
+    </section>
+
+    <!-- Right: Futures wallet + positions log -->
+    <section class="card">
+      <h2>Futures Wallet</h2>
+      <p class="muted" style="margin:0 0 6px;">
+        Isolated margin style · unrealized PnL updates in real-time. [web:147][web:148]
+      </p>
+
+      <div class="balance-grid">
+        <div class="balance-item">
+          <div class="balance-label">Wallet Balance</div>
+          <div class="balance-value" id="wallet-balance">--</div>
         </div>
-
-        <h2 style="margin-top:16px;">Futures Wallet</h2>
-        <div class="muted">Isolated margin style simulation. [web:130][web:133]</div>
-
-        <div class="wallet-row">
-          <div class="wallet-label">Wallet Balance</div>
-          <div class="wallet-value" id="wallet-balance">1,000 USDT</div>
-          <div class="wallet-label">Available Margin</div>
-          <div class="wallet-value" id="avail-margin">1,000 USDT</div>
-          <div class="wallet-label">Total Unrealized PnL</div>
-          <div class="wallet-value" id="total-pnl">+0 USDT</div>
-          <div class="wallet-label">ROE</div>
-          <div class="wallet-value" id="total-roe">0 %</div>
-        </div>
-
-        <h2 style="margin-top:16px;">Open Positions</h2>
-        <div>
-          <div class="label">Long Position</div>
-          <div class="value" id="long-pos">No long position.</div>
-          <div class="muted" id="long-pnl">PnL: --</div>
-        </div>
-        <div style="margin-top:10px;">
-          <div class="label">Short Position</div>
-          <div class="value" id="short-pos">No short position.</div>
-          <div class="muted" id="short-pnl">PnL: --</div>
-        </div>
-
-        <div class="muted" style="margin-top:16px;font-size:12px;">
-          Futures Paper Trading · For learning only · PnL based on Binance futures price API formulas. [web:124][web:125]
+        <div class="balance-item">
+          <div class="balance-label">Used Margin</div>
+          <div class="balance-value" id="used-margin">--</div>
         </div>
       </div>
-    </div>
-  </div>
+      <div class="balance-grid" style="margin-top:8px;">
+        <div class="balance-item">
+          <div class="balance-label">Available Margin</div>
+          <div class="balance-value" id="avail-margin">--</div>
+        </div>
+        <div class="balance-item">
+          <div class="balance-label">Total Unrealized PnL</div>
+          <div class="balance-value" id="total-pnl">--</div>
+        </div>
+      </div>
+      <div class="balance-item" style="margin-top:8px;">
+        <div class="balance-label">ROE (on used margin)</div>
+        <div class="balance-value" id="total-roe">--</div>
+      </div>
 
+      <h2 style="margin-top:16px;">Open Positions</h2>
+      <div class="balance-item">
+        <div class="balance-label">Long</div>
+        <div class="balance-value" id="long-pos">No long position.</div>
+        <div class="muted" id="long-pnl">PnL: --</div>
+      </div>
+      <div class="balance-item" style="margin-top:8px;">
+        <div class="balance-label">Short</div>
+        <div class="balance-value" id="short-pos">No short position.</div>
+        <div class="muted" id="short-pnl">PnL: --</div>
+      </div>
+
+      <h2 style="margin-top:16px;">Fills (paper)</h2>
+      <div class="orders" id="orders-list">
+        <div class="order-row">
+          <span class="muted">No fills yet.</span>
+          <span></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    BTC Futures Paper Trading · Frontend-only simulator · Data from Binance &amp; TradingView
+  </footer>
+
+  <!-- TradingView script -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
   <script>
-    // DOM
-    const priceLine = document.getElementById("price-line");
-    const lastUpdateEl = document.getElementById("last-update");
-    const symbolSelect = document.getElementById("symbol-select");
-    const tvIframe = document.getElementById("tv-iframe");
-    const intervalRow = document.getElementById("interval-row");
-    const tvLinkInput = document.getElementById("tv-link-input");
-    const tvLinkGoBtn = document.getElementById("tv-link-go");
+    let tvWidget;
+    function initTradingView(symbolTv) {
+      if (tvWidget && tvWidget.remove) tvWidget.remove();
+      tvWidget = new TradingView.widget({
+        width: "100%",
+        height: "100%",
+        symbol: symbolTv,
+        interval: "1",
+        timezone: "Etc/UTC",
+        theme: "dark",
+        style: "1",
+        locale: "en",
+        toolbar_bg: "#020617",
+        enable_publishing: false,
+        hide_legend: false,
+        save_image: false,
+        container_id: "tv_chart_container"
+      });
+    }
+  </script>
 
-    const qtyInput = document.getElementById("qty-input");
-    const levSelect = document.getElementById("lev-select");
-    const marginLine = document.getElementById("margin-line");
-    const openLongBtn = document.getElementById("open-long");
-    const openShortBtn = document.getElementById("open-short");
-    const closeLongBtn = document.getElementById("close-long");
-    const closeShortBtn = document.getElementById("close-short");
+  <!-- Logic -->
+  <script>
+    const INITIAL_WALLET_BALANCE = 1000;
+    const PRICE_HISTORY_LIMIT = 120;
+    const FETCH_INTERVAL_MS = 3000;
 
+    let currentSymbol = "BTCUSDT";
+    let currentTvSymbol = "BINANCE:BTCUSDT.P";
+    let currentBaseCoin = "BTC";
+
+    let walletBalance = INITIAL_WALLET_BALANCE;
+    let usedMargin = 0;
+    let currentPrice = null;
+    const priceHistory = [];
+    const priceStrHistory = [];
+
+    let longPosition = null;   // { qty, entry, lev }
+    let shortPosition = null;  // { qty, entry, lev }
+
+    const priceEl = document.getElementById("price");
+    const priceUpdatedEl = document.getElementById("price-updated");
     const walletBalanceEl = document.getElementById("wallet-balance");
+    const usedMarginEl = document.getElementById("used-margin");
     const availMarginEl = document.getElementById("avail-margin");
     const totalPnlEl = document.getElementById("total-pnl");
     const totalRoeEl = document.getElementById("total-roe");
@@ -329,274 +353,77 @@
     const longPnlEl = document.getElementById("long-pnl");
     const shortPnlEl = document.getElementById("short-pnl");
 
-    const scalpHintEl      = document.getElementById("scalp-hint");
-    const scalpVolHintEl   = document.getElementById("scalp-vol-hint");
+    const qtyInput = document.getElementById("qty-input");
+    const levSelect = document.getElementById("lev-select");
+    const marginHintEl = document.getElementById("margin-hint");
+    const openLongBtn = document.getElementById("open-long-btn");
+    const openShortBtn = document.getElementById("open-short-btn");
+    const closeLongBtn = document.getElementById("close-long-btn");
+    const closeShortBtn = document.getElementById("close-short-btn");
+    const orderMessageEl = document.getElementById("order-message");
+    const ordersListEl = document.getElementById("orders-list");
+
+    const scalpHintEl = document.getElementById("scalp-hint");
+    const scalpVolHintEl = document.getElementById("scalp-vol-hint");
     const scalpRangeHintEl = document.getElementById("scalp-range-hint");
-    const shortHintEl      = document.getElementById("short-hint");
-    const longHintEl       = document.getElementById("long-hint");
+    const shortHintEl = document.getElementById("short-hint");
+    const longHintEl = document.getElementById("long-hint");
 
-    // State
-    let currentSymbol = "BTCUSDT";
-    let currentInterval = "1";
-    const PRICE_HISTORY_LIMIT = 200;
-    const priceHistory = [];
-    let currentPrice = null;
+    const symbolSelect = document.getElementById("symbol-select");
+    const pairTitle = document.getElementById("pair-title");
+    const symbolSearch = document.getElementById("symbol-search");
+    const symbolSearchBtn = document.getElementById("symbol-search-btn");
 
-    let walletBalance = 1000;
-    let usedMargin = 0;
-    let longPosition = null;
-    let shortPosition = null;
+    const fmtUsdtShort = x =>
+      Number(x).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
-    // Utils
-    const fmtUSDT = v => (v == null || Number.isNaN(v)) ? "--" : v.toFixed(2) + " USDT";
-    const fmtCoin = v => (v == null || Number.isNaN(v)) ? "--" : v.toFixed(4);
-    const fmtPct  = v => (v == null || Number.isNaN(v)) ? "0 %": v.toFixed(2) + " %";
-    const nowTime = () => new Date().toLocaleTimeString();
-
-    function updateTvSrc() {
-      const symbol = currentSymbol + ".P";
-      const base = "https://s.tradingview.com/widgetembed/";
-      const params =
-        "?symbol=BINANCE:" + encodeURIComponent(symbol) +
-        "&interval=" + encodeURIComponent(currentInterval) +
-        "&theme=dark&style=1&hide_side_toolbar=true" +
-        "&withdateranges=false&hide_volume=true" +
-        "&allow_symbol_change=false&save_image=false";
-      tvIframe.src = base + params;
-    }
-
-    intervalRow.addEventListener("click", e => {
-      const btn = e.target.closest("button[data-interval]");
-      if (!btn) return;
-      currentInterval = btn.getAttribute("data-interval");
-      intervalRow.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
-      btn.classList.add("active");
-      updateTvSrc();
-    });
-
-    symbolSelect.addEventListener("change", () => {
-      const val = symbolSelect.value || "BTCUSDT";
-      updateSymbol(val);
-    });
-
-    function updateSymbol(symbol) {
-      currentSymbol = symbol;
-      priceHistory.length = 0;
-      resetHints();
-      currentPrice = null;
-      priceLine.textContent = "-- USDT";
-      lastUpdateEl.textContent = "Last update: --";
-      updateTvSrc();
-      fetchPrice();
-    }
-
-    function extractSymbolFromTvUrl(raw) {
-      if (!raw) return null;
-      const str = raw.trim();
-      if (!str.includes("http")) {
-        return str.toUpperCase().replace(/[^A-Z0-9.]/g, "");
-      }
-      try {
-        const url = new URL(str);
-        const parts = url.pathname.split("/");
-        const symbolPart = parts.find(p => p.includes(":"));
-        if (!symbolPart) return null;
-        return (symbolPart.split(":")[1] || "").toUpperCase();
-      } catch {
-        return null;
-      }
-    }
-
-    function handleTvLinkGo() {
-      const raw = tvLinkInput.value;
-      const sym = extractSymbolFromTvUrl(raw);
-      if (!sym) {
-        alert("Symbol ya valid TradingView link paste karo (e.g. BTCUSDT.P).");
-        return;
-      }
-      const apiSymbol = sym.replace(".P", "");
-      currentSymbol = apiSymbol;
-      if ([...symbolSelect.options].some(o => o.value === apiSymbol)) {
-        symbolSelect.value = apiSymbol;
-      }
-      priceHistory.length = 0;
-      resetHints();
-      currentPrice = null;
-      priceLine.textContent = "-- USDT";
-      lastUpdateEl.textContent = "Last update: --";
-      updateTvSrc();
-      fetchPrice();
-    }
-
-    tvLinkGoBtn.addEventListener("click", handleTvLinkGo);
-    tvLinkInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") handleTvLinkGo();
-    });
-
-    async function fetchPrice() {
-      const url = "https://api.binance.com/fapi/v1/ticker/price?symbol=" + currentSymbol;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
-        const p = parseFloat(data.price);
-        if (!Number.isNaN(p)) {
-          currentPrice = p;
-          priceHistory.push(p);
-          if (priceHistory.length > PRICE_HISTORY_LIMIT) priceHistory.shift();
-          updatePriceUI();
-          updateHints();
-        }
-      } catch (err) {
-        console.error("Price fetch error", err);
-      }
-    }
-
-    function updatePriceUI() {
-      priceLine.textContent = currentPrice == null ? "-- USDT" : currentPrice.toFixed(2) + " USDT";
-      lastUpdateEl.textContent = "Last update: " + nowTime();
-      updateMarginPreview();
-      calcPnL();
-    }
-
-    setInterval(fetchPrice, 3000);
-
-    function updateMarginPreview() {
-      const qty = parseFloat(qtyInput.value || "0");
-      const lev = parseFloat(levSelect.value || "1");
-      if (!currentPrice || !qty || qty <= 0 || !lev) {
-        marginLine.textContent = "Margin = qty × price ÷ lev";
-        return;
-      }
-      const needed = (qty * currentPrice) / lev;
-      marginLine.textContent = "Required margin (approx): " + fmtUSDT(needed);
-    }
-
-    qtyInput.addEventListener("input", updateMarginPreview);
-    levSelect.addEventListener("change", updateMarginPreview);
-
-    function refreshWalletUI(totalUnrealized = 0) {
-      walletBalanceEl.textContent = fmtUSDT(walletBalance);
+    function renderWallet(totalUnrealized = 0) {
+      walletBalanceEl.textContent = fmtUsdtShort(walletBalance) + " USDT";
+      usedMarginEl.textContent = fmtUsdtShort(usedMargin) + " USDT";
       const avail = walletBalance - usedMargin;
-      availMarginEl.textContent = fmtUSDT(avail);
-      totalPnlEl.textContent = (totalUnrealized >= 0 ? "+" : "") + fmtUSDT(totalUnrealized);
-      totalPnlEl.className =
-        "wallet-value " + (totalUnrealized > 0 ? "pnl-positive" : totalUnrealized < 0 ? "pnl-negative" : "");
+      availMarginEl.textContent = fmtUsdtShort(avail) + " USDT";
+
+      totalPnlEl.textContent = (totalUnrealized >= 0 ? "+" : "") + fmtUsdtShort(totalUnrealized) + " USDT";
+      totalPnlEl.className = "balance-value " + (totalUnrealized > 0 ? "pnl-positive" : totalUnrealized < 0 ? "pnl-negative" : "");
+
       const roe = usedMargin > 0 ? (totalUnrealized / usedMargin) * 100 : 0;
-      totalRoeEl.textContent = fmtPct(roe);
+      totalRoeEl.textContent = roe.toFixed(2) + " %";
     }
 
-    function refreshPositionsUI() {
-      if (!longPosition) {
-        longPosEl.textContent = "No long position.";
-        longPnlEl.textContent = "PnL: --";
-        longPnlEl.className = "muted";
-      } else {
-        longPosEl.textContent =
-          "Qty: " + fmtCoin(longPosition.qty) +
-          " · Entry: " + fmtUSDT(longPosition.entry) +
-          " · Lev: " + longPosition.lev + "x";
+    function addFillRow(side, qty, priceStr) {
+      if (
+        ordersListEl.children.length === 1 &&
+        ordersListEl.children[0].querySelector(".muted")
+      ) {
+        ordersListEl.innerHTML = "";
       }
-
-      if (!shortPosition) {
-        shortPosEl.textContent = "No short position.";
-        shortPnlEl.textContent = "PnL: --";
-        shortPnlEl.className = "muted";
-      } else {
-        shortPosEl.textContent =
-          "Qty: " + fmtCoin(shortPosition.qty) +
-          " · Entry: " + fmtUSDT(shortPosition.entry) +
-          " · Lev: " + shortPosition.lev + "x";
-      }
+      const row = document.createElement("div");
+      row.className = "order-row";
+      const left = document.createElement("span");
+      left.innerHTML =
+        `<span class="${side === "long" ? "order-side-long" : "order-side-short"}">` +
+        `${side.toUpperCase()}&nbsp;</span> · ${qty.toFixed(6)} ${currentBaseCoin}`;
+      const right = document.createElement("span");
+      right.textContent = currentSymbol + " @ " + priceStr + " USDT";
+      row.appendChild(left);
+      row.appendChild(right);
+      ordersListEl.prepend(row);
     }
 
-    function calcPnL() {
-      if (!currentPrice) {
-        refreshWalletUI(0);
-        return;
-      }
-      let totalUnrealized = 0;
+    const resetHints = () => {
+      scalpHintEl.textContent = "Scalping: waiting for data…";
+      scalpVolHintEl.textContent = "Scalping (volatility): waiting for data…";
+      scalpRangeHintEl.textContent = "Scalping (range): waiting for data…";
+      shortHintEl.textContent = "Short-term: waiting for data…";
+      longHintEl.textContent = "Long-term: waiting for data…";
+    };
 
-      if (longPosition) {
-        const diff = currentPrice - longPosition.entry;
-        const pnl = diff * longPosition.qty * longPosition.lev;
-        longPnlEl.textContent = "PnL: " + (pnl >= 0 ? "+" : "") + fmtUSDT(pnl);
-        longPnlEl.className =
-          "muted " + (pnl > 0 ? "pnl-positive" : pnl < 0 ? "pnl-negative" : "");
-        totalUnrealized += pnl;
-      }
-
-      if (shortPosition) {
-        const diff = shortPosition.entry - currentPrice;
-        const pnl = diff * shortPosition.qty * shortPosition.lev;
-        shortPnlEl.textContent = "PnL: " + (pnl >= 0 ? "+" : "") + fmtUSDT(pnl);
-        shortPnlEl.className =
-          "muted " + (pnl > 0 ? "pnl-positive" : pnl < 0 ? "pnl-negative" : "");
-        totalUnrealized += pnl;
-      }
-
-      refreshWalletUI(totalUnrealized);
-    }
-
-    function openPosition(side) {
-      if (!currentPrice) return;
-      const qty = parseFloat(qtyInput.value || "0");
-      const lev = parseFloat(levSelect.value || "1");
-      if (!qty || qty <= 0) return;
-
-      const marginNeeded = (qty * currentPrice) / lev;
-      const avail = walletBalance - usedMargin;
-      if (marginNeeded > avail) {
-        alert("Not enough margin available.");
-        return;
-      }
-
-      const pos = { qty, entry: currentPrice, lev };
-      if (side === "long") longPosition = pos;
-      else shortPosition = pos;
-
-      usedMargin += marginNeeded;
-      refreshPositionsUI();
-      calcPnL();
-    }
-
-    function closePosition(side) {
-      if (!currentPrice) return;
-
-      if (side === "long" && longPosition) {
-        const diff = currentPrice - longPosition.entry;
-        const pnl = diff * longPosition.qty * longPosition.lev;
-        const marginUsed = (longPosition.qty * longPosition.entry) / longPosition.lev;
-        walletBalance += pnl;
-        usedMargin -= marginUsed;
-        longPosition = null;
-      }
-
-      if (side === "short" && shortPosition) {
-        const diff = shortPosition.entry - currentPrice;
-        const pnl = diff * shortPosition.qty * shortPosition.lev;
-        const marginUsed = (shortPosition.qty * shortPosition.entry) / shortPosition.lev;
-        walletBalance += pnl;
-        usedMargin -= marginUsed;
-        shortPosition = null;
-      }
-
-      refreshPositionsUI();
-      calcPnL();
-    }
-
-    openLongBtn.addEventListener("click", () => openPosition("long"));
-    openShortBtn.addEventListener("click", () => openPosition("short"));
-    closeLongBtn.addEventListener("click", () => closePosition("long"));
-    closeShortBtn.addEventListener("click", () => closePosition("short"));
-
-    // Strategy logic
     const getChangePct = windowSize => {
       if (priceHistory.length < 2) return null;
       const len = priceHistory.length;
       const startIndex = Math.max(0, len - windowSize);
       const first = priceHistory[startIndex];
-      const last  = priceHistory[len - 1];
+      const last = priceHistory[len - 1];
       if (!first || !last) return null;
       return ((last - first) / first) * 100;
     };
@@ -607,7 +434,7 @@
       const start = len - windowSize - 1;
       const slice = priceHistory.slice(start);
       const first = slice[0];
-      const last  = slice[slice.length - 1];
+      const last = slice[slice.length - 1];
       const changePct = ((last - first) / first) * 100;
 
       let sumAbs = 0;
@@ -619,17 +446,7 @@
       return { changePct, avgStep };
     };
 
-    function resetHints() {
-      if (!scalpHintEl) return;
-      scalpHintEl.textContent      = "Scalping: waiting for data…";
-      scalpVolHintEl.textContent   = "Scalping (volatility): waiting for data…";
-      scalpRangeHintEl.textContent = "Scalping (range): waiting for range data…";
-      shortHintEl.textContent      = "Short-term: waiting for data…";
-      longHintEl.textContent       = "Long-term: waiting for data…";
-    }
-
-    function updateScalpHintBasic() {
-      if (!scalpHintEl) return;
+    const updateScalpHintBasic = () => {
       const scalpChange = getChangePct(15);
       if (scalpChange == null) {
         scalpHintEl.textContent = "Scalping: waiting for data…";
@@ -649,10 +466,9 @@
         scalpHintEl.textContent =
           "Scalping: Bilkul flat, entry force mat karo.";
       }
-    }
+    };
 
-    function updateScalpVolHint() {
-      if (!scalpVolHintEl) return;
+    const updateScalpVolHint = () => {
       const stats = getScalpStats(20);
       if (!stats) {
         scalpVolHintEl.textContent = "Scalping (volatility): waiting for data…";
@@ -684,10 +500,9 @@
         scalpVolHintEl.textContent =
           "Scalping (volatility): Direction mixed; sirf extremes (support/resistance) pe scalp socho ya wait karo.";
       }
-    }
+    };
 
-    function updateScalpRangeHint() {
-      if (!scalpRangeHintEl) return;
+    const updateScalpRangeHint = () => {
       const len = priceHistory.length;
       const windowSize = 40;
       if (len < windowSize) {
@@ -719,21 +534,28 @@
                           shortChange < 0 && longChange <= 0;
 
       if (distFromLow <= 0.2) {
-        scalpRangeHintEl.textContent = isUpTrend
-          ? "Scalping (range): Price recent range ke bottom ke paas + trend up; yahan se chhota BUY scalp idea banta hai."
-          : "Scalping (range): Range bottom ke paas; aggressive long scalp possible, lekin trend strong nahi, SL tight rakho.";
+        if (isUpTrend) {
+          scalpRangeHintEl.textContent =
+            "Scalping (range): Price recent range ke bottom ke paas + trend up; yahan se chhota BUY scalp idea banta hai.";
+        } else {
+          scalpRangeHintEl.textContent =
+            "Scalping (range): Range bottom ke paas; aggressive long scalp possible, lekin trend strong nahi, SL tight rakho.";
+        }
       } else if (distFromHigh <= 0.2) {
-        scalpRangeHintEl.textContent = isDownTrend
-          ? "Scalping (range): Price recent range ke top ke paas + trend down; yahan se SHORT scalp idea banta hai."
-          : "Scalping (range): Range top ke paas; aggressive short scalp possible, lekin trend strong nahi, SL tight rakho.";
+        if (isDownTrend) {
+          scalpRangeHintEl.textContent =
+            "Scalping (range): Price recent range ke top ke paas + trend down; yahan se SHORT scalp idea banta hai.";
+        } else {
+          scalpRangeHintEl.textContent =
+            "Scalping (range): Range top ke paas; aggressive short scalp possible, lekin trend strong nahi, SL tight rakho.";
+        }
       } else {
         scalpRangeHintEl.textContent =
           "Scalping (range): Price range ke beech me; better hai bottom/top ke paas ka wait karo.";
       }
-    }
+    };
 
-    function updateShortLongHints() {
-      if (!shortHintEl || !longHintEl) return;
+    const updateShortLongHints = () => {
       const shortChange = getChangePct(40);
       const longChange  = getChangePct(80);
 
@@ -762,20 +584,243 @@
         longHintEl.textContent =
           "Long-term: Normal range; existing position manage karo, new big bet avoid.";
       }
-    }
+    };
 
-    function updateHints() {
-      if (!scalpHintEl) return;
+    const updateHints = () => {
       updateScalpHintBasic();
       updateScalpVolHint();
       updateScalpRangeHint();
       updateShortLongHints();
+    };
+
+    const fetchPrice = async () => {
+      try {
+        const base = currentSymbol.replace(".P", "").replace("_PERP","");
+        const endpoint =
+          "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + base;
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        currentPrice = parseFloat(data.price);
+        const priceStr = data.price;
+        priceEl.textContent = priceStr + " USDT";
+        const now = new Date();
+        priceUpdatedEl.textContent = "Last update: " + now.toLocaleTimeString();
+        priceHistory.push(currentPrice);
+        priceStrHistory.push(priceStr);
+        if (priceHistory.length > PRICE_HISTORY_LIMIT) {
+          priceHistory.shift();
+          priceStrHistory.shift();
+        }
+        updatePnL();
+        updateHints();
+        updateMarginPreview();
+      } catch (err) {
+        console.error(err);
+        priceUpdatedEl.textContent =
+          "Failed to fetch price (maybe invalid symbol or network).";
+      }
+    };
+
+    function updatePnL() {
+      if (!currentPrice) {
+        renderWallet(0);
+        return;
+      }
+      let totalUnrealized = 0;
+
+      if (longPosition) {
+        const diff = currentPrice - longPosition.entry;
+        const pnl = diff * longPosition.qty * longPosition.lev;
+        longPnlEl.textContent = "PnL: " + (pnl >= 0 ? "+" : "") + fmtUsdtShort(pnl) + " USDT";
+        longPnlEl.className = "muted " + (pnl > 0 ? "pnl-positive" : pnl < 0 ? "pnl-negative" : "");
+        totalUnrealized += pnl;
+      } else {
+        longPnlEl.textContent = "PnL: --";
+        longPnlEl.className = "muted";
+      }
+
+      if (shortPosition) {
+        const diff = shortPosition.entry - currentPrice;
+        const pnl = diff * shortPosition.qty * shortPosition.lev;
+        shortPnlEl.textContent = "PnL: " + (pnl >= 0 ? "+" : "") + fmtUsdtShort(pnl) + " USDT";
+        shortPnlEl.className = "muted " + (pnl > 0 ? "pnl-positive" : pnl < 0 ? "pnl-negative" : "");
+        totalUnrealized += pnl;
+      } else {
+        shortPnlEl.textContent = "PnL: --";
+        shortPnlEl.className = "muted";
+      }
+
+      renderWallet(totalUnrealized);
+      longPosEl.textContent = longPosition
+        ? `Qty: ${longPosition.qty.toFixed(6)} ${currentBaseCoin} · Entry: ${fmtUsdtShort(longPosition.entry)} · Lev: ${longPosition.lev}x`
+        : "No long position.";
+      shortPosEl.textContent = shortPosition
+        ? `Qty: ${shortPosition.qty.toFixed(6)} ${currentBaseCoin} · Entry: ${fmtUsdtShort(shortPosition.entry)} · Lev: ${shortPosition.lev}x`
+        : "No short position.";
     }
 
-    // init
-    updateSymbol("BTCUSDT");
-    refreshWalletUI(0);
-    refreshPositionsUI();
+    function updateMarginPreview() {
+      const qty = parseFloat(qtyInput.value || "0");
+      const lev = parseFloat(levSelect.value || "1");
+      if (!currentPrice || !qty || qty <= 0 || !lev) {
+        marginHintEl.textContent = "Margin = qty × price ÷ lev";
+        return;
+      }
+      const needed = (qty * currentPrice) / lev;
+      marginHintEl.textContent =
+        "Required margin (approx): " + fmtUsdtShort(needed) + " USDT";
+    }
+
+    qtyInput.addEventListener("input", updateMarginPreview);
+    levSelect.addEventListener("change", updateMarginPreview);
+
+    function openPosition(side) {
+      orderMessageEl.textContent = "";
+      if (!currentPrice) {
+        orderMessageEl.textContent = "Price not loaded yet.";
+        return;
+      }
+      const qty = parseFloat(qtyInput.value);
+      const lev = parseFloat(levSelect.value || "1");
+      if (!qty || qty <= 0) {
+        orderMessageEl.textContent = "Enter a valid quantity.";
+        return;
+      }
+      const marginNeeded = (qty * currentPrice) / lev;
+      const avail = walletBalance - usedMargin;
+      if (marginNeeded > avail) {
+        orderMessageEl.textContent = "Not enough margin available.";
+        return;
+      }
+
+      const pos = { qty, entry: currentPrice, lev };
+      if (side === "long") longPosition = pos;
+      else shortPosition = pos;
+
+      usedMargin += marginNeeded;
+      const lastPriceStr = priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
+      addFillRow(side, qty, lastPriceStr);
+      orderMessageEl.textContent = `${side.toUpperCase()} ${qty.toFixed(6)} ${currentBaseCoin} opened.`;
+
+      qtyInput.value = "";
+      updateMarginPreview();
+      updatePnL();
+    }
+
+    function closePosition(side) {
+      orderMessageEl.textContent = "";
+      if (!currentPrice) {
+        orderMessageEl.textContent = "Price not loaded yet.";
+        return;
+      }
+
+      if (side === "long" && longPosition) {
+        const diff = currentPrice - longPosition.entry;
+        const pnl = diff * longPosition.qty * longPosition.lev;
+        const marginUsed = (longPosition.qty * longPosition.entry) / longPosition.lev;
+        walletBalance += pnl;
+        usedMargin -= marginUsed;
+        const lastPriceStr = priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
+        addFillRow("long", longPosition.qty, lastPriceStr);
+        orderMessageEl.textContent =
+          `LONG closed · Realized PnL: ${(pnl >= 0 ? "+" : "")}${fmtUsdtShort(pnl)} USDT`;
+        longPosition = null;
+      }
+
+      if (side === "short" && shortPosition) {
+        const diff = shortPosition.entry - currentPrice;
+        const pnl = diff * shortPosition.qty * shortPosition.lev;
+        const marginUsed = (shortPosition.qty * shortPosition.entry) / shortPosition.lev;
+        walletBalance += pnl;
+        usedMargin -= marginUsed;
+        const lastPriceStr = priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
+        addFillRow("short", shortPosition.qty, lastPriceStr);
+        orderMessageEl.textContent =
+          `SHORT closed · Realized PnL: ${(pnl >= 0 ? "+" : "")}${fmtUsdtShort(pnl)} USDT`;
+        shortPosition = null;
+      }
+
+      updatePnL();
+    }
+
+    openLongBtn.addEventListener("click", () => openPosition("long"));
+    openShortBtn.addEventListener("click", () => openPosition("short"));
+    closeLongBtn.addEventListener("click", () => closePosition("long"));
+    closeShortBtn.addEventListener("click", () => closePosition("short"));
+
+    const parseUserSymbolInput = raw => {
+      if (!raw) return null;
+      let s = raw.trim();
+      if (s.startsWith("http")) {
+        try {
+          const url = new URL(s);
+          const tvParam = url.searchParams.get("tvwidgetsymbol");
+          if (tvParam) {
+            const parts = tvParam.split(":");
+            return parts[parts.length - 1].toUpperCase();
+          }
+          const symbolParam = url.searchParams.get("symbol");
+          if (symbolParam) {
+            const parts = symbolParam.split(":");
+            return parts[parts.length - 1].toUpperCase();
+          }
+        } catch (e) {}
+      }
+      s = s.toUpperCase().replace(/\s+/g,"").replace("/","");
+      if (!s.endsWith("USDT") && !s.endsWith("USDT.P")) s = s + "USDT.P";
+      return s;
+    };
+
+    const updateSymbol = symbol => {
+      currentSymbol = symbol;
+      currentTvSymbol = "BINANCE:" + symbol.replace(".P", "") + ".P";
+      currentBaseCoin = symbol.replace("USDT.P","").replace("USDT","");
+      pairTitle.textContent = currentBaseCoin + "/USDT Perp Price";
+
+      let matched = false;
+      for (const opt of symbolSelect.options) {
+        if (opt.value === symbol.replace(".P","")) {
+          symbolSelect.value = opt.value;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) symbolSelect.value = "BTCUSDT";
+
+      currentPrice = null;
+      priceHistory.length = 0;
+      priceStrHistory.length = 0;
+      resetHints();
+      renderWallet(0);
+      initTradingView(currentTvSymbol);
+      fetchPrice();
+    };
+
+    symbolSelect.addEventListener("change", () => {
+      updateSymbol(symbolSelect.value + ".P");
+    });
+
+    symbolSearchBtn.addEventListener("click", () => {
+      const parsed = parseUserSymbolInput(symbolSearch.value);
+      if (!parsed) {
+        orderMessageEl.textContent =
+          "Symbol ya valid TradingView link paste karo (e.g. BTCUSDT.P).";
+        return;
+      }
+      orderMessageEl.textContent = "";
+      updateSymbol(parsed);
+    });
+
+    symbolSearch.addEventListener("keydown", e => {
+      if (e.key === "Enter") symbolSearchBtn.click();
+    });
+
+    setInterval(fetchPrice, FETCH_INTERVAL_MS);
+
+    resetHints();
+    renderWallet(0);
+    initTradingView(currentTvSymbol);
+    fetchPrice();
   </script>
 </body>
 </html>
