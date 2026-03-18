@@ -211,15 +211,17 @@
           <input
             id="symbol-search"
             type="text"
-            placeholder="Search symbol (e.g. pepeusdt)"
-            style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937; min-width:120px;"
+            placeholder="TV link or symbol (e.g. BTCUSDT)"
+            style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937; min-width:140px;"
           />
           <button id="symbol-search-btn" class="btn" style="font-size:0.78rem; padding:4px 8px;">
             Go
           </button>
         </div>
       </h2>
-      <div class="muted" style="margin-bottom:4px;">Spot symbols only (e.g. BTCUSDT, ETHUSDT). Uses Binance price + TradingView chart.</div>
+      <div class="muted" style="margin-bottom:4px;">
+        Paste TradingView link or type symbol (e.g. BTCUSDT, pepe/usdt). Uses Binance spot price + TradingView chart.
+      </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
 
@@ -526,9 +528,41 @@
       qtyInput.value = "";
     }
 
+    // TV link + symbol parser
     function parseUserSymbolInput(raw) {
       if (!raw) return null;
-      let s = raw.trim().toUpperCase();
+      let s = raw.trim();
+
+      // Agar TradingView URL hai [web:13][web:24]
+      if (s.startsWith("http")) {
+        try {
+          const url = new URL(s);
+
+          // Case 1: ?tvwidgetsymbol=BINANCE:BTCUSDT
+          const tvParam = url.searchParams.get("tvwidgetsymbol");
+          if (tvParam) {
+            const parts = tvParam.split(":");
+            const tvSymbol = parts[parts.length - 1];
+            return tvSymbol.toUpperCase();
+          }
+
+          // Case 2: ?symbol=BINANCE:BTCUSDT
+          const symbolParam = url.searchParams.get("symbol");
+          if (symbolParam) {
+            const parts = symbolParam.split(":");
+            const sym = parts[parts.length - 1];
+            return sym.toUpperCase();
+          }
+
+          // Fallback: URL hi diya hai but params nahi; normal handling pe jayega
+          s = url.pathname;
+        } catch (e) {
+          // invalid URL, ignore and fall through
+        }
+      }
+
+      // Normal symbol handling (BTC, btcusdt, btc/usdt, pepeusdt, etc.) [web:18]
+      s = s.toUpperCase();
       s = s.replace(/\s+/g, "");
       s = s.replace("/", "");
       if (!s.endsWith("USDT")) {
@@ -585,7 +619,7 @@
     symbolSearchBtn.addEventListener("click", () => {
       const parsed = parseUserSymbolInput(symbolSearch.value);
       if (!parsed) {
-        orderMessageEl.textContent = "Enter a symbol like BTCUSDT or pepe/usdt.";
+        orderMessageEl.textContent = "Paste a TradingView link or enter symbol like BTCUSDT / pepe/usdt.";
         return;
       }
       orderMessageEl.textContent = "";
