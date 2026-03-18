@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root { color-scheme: dark; }
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -263,46 +266,53 @@
   <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
   <script>
     new TradingView.widget({
-      "width": "100%",
-      "height": "100%",
-      "symbol": "BINANCE:BTCUSDT",
-      "interval": "1",
-      "timezone": "Etc/UTC",
-      "theme": "dark",
-      "style": "1",
-      "locale": "en",
-      "toolbar_bg": "#020617",
-      "enable_publishing": false,
-      "hide_legend": false,
-      "save_image": false,
-      "container_id": "tv_chart_container"
+      width: "100%",
+      height: "100%",
+      symbol: "BINANCE:BTCUSDT",
+      interval: "1",
+      timezone: "Etc/UTC",
+      theme: "dark",
+      style: "1",
+      locale: "en",
+      toolbar_bg: "#020617",
+      enable_publishing: false,
+      hide_legend: false,
+      save_image: false,
+      container_id: "tv_chart_container"
     });
   </script>
 
   <!-- Paper trading + hints logic -->
   <script>
-    let inrBalance = 100000;
+    // ---- CONFIG ----
+    const INR_PER_USDT = 85;
+    const INITIAL_INR_BALANCE = 100000;
+    const PRICE_HISTORY_LIMIT = 20;
+    const FETCH_INTERVAL_MS = 15000;
+
+    // ---- STATE ----
+    let inrBalance = INITIAL_INR_BALANCE;
     let btcBalance = 0;
     let currentPrice = null;
-    const INR_PER_USDT = 85;
+    const priceHistory = [];
 
-    const priceEl = document.getElementById("price");
+    // ---- DOM ----
+    const priceEl        = document.getElementById("price");
     const priceUpdatedEl = document.getElementById("price-updated");
-    const inrBalanceEl = document.getElementById("inr-balance");
-    const btcBalanceEl = document.getElementById("btc-balance");
-    const totalValueEl = document.getElementById("total-value");
-    const qtyInput = document.getElementById("qty-input");
-    const buyBtn = document.getElementById("buy-btn");
-    const sellBtn = document.getElementById("sell-btn");
+    const inrBalanceEl   = document.getElementById("inr-balance");
+    const btcBalanceEl   = document.getElementById("btc-balance");
+    const totalValueEl   = document.getElementById("total-value");
+    const qtyInput       = document.getElementById("qty-input");
+    const buyBtn         = document.getElementById("buy-btn");
+    const sellBtn        = document.getElementById("sell-btn");
     const orderMessageEl = document.getElementById("order-message");
-    const ordersListEl = document.getElementById("orders-list");
+    const ordersListEl   = document.getElementById("orders-list");
 
     const scalpHintEl = document.getElementById("scalp-hint");
     const shortHintEl = document.getElementById("short-hint");
-    const longHintEl = document.getElementById("long-hint");
+    const longHintEl  = document.getElementById("long-hint");
 
-    const priceHistory = [];
-
+    // ---- HELPERS ----
     function formatInr(x) {
       return x.toLocaleString("en-IN", { maximumFractionDigits: 2 });
     }
@@ -314,24 +324,32 @@
     function renderBalances() {
       inrBalanceEl.textContent = "₹ " + formatInr(inrBalance);
       btcBalanceEl.textContent = btcBalance.toFixed(6) + " BTC";
-      if (currentPrice) {
-        const usdtValue = btcBalance * currentPrice;
-        const inrValue = usdtValue * INR_PER_USDT + inrBalance;
-        totalValueEl.textContent = "₹ " + formatInr(inrValue);
-      } else {
+
+      if (!currentPrice) {
         totalValueEl.textContent = "₹ --";
+        return;
       }
+
+      const usdtValue = btcBalance * currentPrice;
+      const inrValue  = usdtValue * INR_PER_USDT + inrBalance;
+      totalValueEl.textContent = "₹ " + formatInr(inrValue);
     }
 
     function addOrderRow(side, qty, price) {
-      if (ordersListEl.children.length === 1 && ordersListEl.children[0].querySelector(".muted")) {
+      if (
+        ordersListEl.children.length === 1 &&
+        ordersListEl.children[0].querySelector(".muted")
+      ) {
         ordersListEl.innerHTML = "";
       }
+
       const row = document.createElement("div");
       row.className = "order-row";
 
       const left = document.createElement("span");
-      left.innerHTML = `<span class="${side === "buy" ? "order-side-buy" : "order-side-sell"}">${side.toUpperCase()}</span> · ${qty.toFixed(6)} BTC`;
+      left.innerHTML =
+        `<span class="${side === "buy" ? "order-side-buy" : "order-side-sell"}">` +
+        `${side.toUpperCase()}</span> · ${qty.toFixed(6)} BTC`;
 
       const right = document.createElement("span");
       right.textContent = "@ " + formatPrice(price) + " USDT";
@@ -341,85 +359,112 @@
       ordersListEl.prepend(row);
     }
 
+    function resetHintsWaiting() {
+      scalpHintEl.textContent = "Scalping: waiting for data…";
+      shortHintEl.textContent = "Short-term: waiting for data…";
+      longHintEl.textContent = "Long-term: waiting for data…";
+    }
+
     function updateHints() {
       if (priceHistory.length < 5) {
-        scalpHintEl.textContent = "Scalping: waiting for data…";
-        shortHintEl.textContent = "Short-term: waiting for data…";
-        longHintEl.textContent = "Long-term: waiting for data…";
+        resetHintsWaiting();
         return;
       }
 
-      const last = priceHistory[priceHistory.length - 1];
+      const last  = priceHistory[priceHistory.length - 1];
       const first = priceHistory[0];
       const changePct = ((last - first) / first) * 100;
 
-      // Scalping (1–10 min) - more aggressive
+      // Scalping (1–10 min)
       if (changePct <= -0.2 && changePct > -1.2) {
-        scalpHintEl.textContent = "Scalping: Abhi BUY scalp try kar sakte ho 5–10 min ke liye (small dip pickup).";
+        scalpHintEl.textContent =
+          "Scalping: Abhi BUY scalp try kar sakte ho 5–10 min ke liye (small dip pickup).";
       } else if (changePct < -1.2) {
-        scalpHintEl.textContent = "Scalping: Strong dump – sirf high-risk BUY scalp, tight stop loss zaroori.";
+        scalpHintEl.textContent =
+          "Scalping: Strong dump – sirf high-risk BUY scalp, tight stop loss zaroori.";
       } else if (changePct >= 0.2 && changePct < 1.2) {
-        scalpHintEl.textContent = "Scalping: Abhi SHORT scalp try kar sakte ho 5–10 min ke liye (small pump fade).";
+        scalpHintEl.textContent =
+          "Scalping: Abhi SHORT scalp try kar sakte ho 5–10 min ke liye (small pump fade).";
       } else if (changePct >= 1.2) {
-        scalpHintEl.textContent = "Scalping: Strong pump – aggressive SHORT scalp possible lekin bohot risky.";
+        scalpHintEl.textContent =
+          "Scalping: Strong pump – aggressive SHORT scalp possible lekin bohot risky.";
       } else {
-        scalpHintEl.textContent = "Scalping: Bilkul flat move, entry force mat karo.";
+        scalpHintEl.textContent =
+          "Scalping: Bilkul flat move, entry force mat karo.";
       }
 
-      // Short-term (hours)
+      // Short‑term (hours)
       if (changePct > 1.5) {
-        shortHintEl.textContent = "Short-term: Strong up move; abhi BUY late ho sakta hai, pullback 4–12 hours ke liye wait karo.";
+        shortHintEl.textContent =
+          "Short-term: Strong up move; abhi BUY late ho sakta hai, pullback 4–12 hours ke liye wait karo.";
       } else if (changePct < -1.5) {
-        shortHintEl.textContent = "Short-term: Dump hua hai; oversold bounce ke liye chhota BUY swing socha ja sakta hai.";
+        shortHintEl.textContent =
+          "Short-term: Dump hua hai; oversold bounce ke liye chhota BUY swing socha ja sakta hai.";
       } else {
-        shortHintEl.textContent = "Short-term: Sideways zone; range trade ya no-trade zone.";
+        shortHintEl.textContent =
+          "Short-term: Sideways zone; range trade ya no-trade zone.";
       }
 
-      // Long-term (2+ din)
+      // Long‑term (2+ din)
       if (changePct > 3) {
-        longHintEl.textContent = "Long-term (2+ din): Structure bullish lag raha hai; abhi fresh SHORT risky ho sakta hai.";
+        longHintEl.textContent =
+          "Long-term (2+ din): Structure bullish lag raha hai; abhi fresh SHORT risky ho sakta hai.";
       } else if (changePct < -3) {
-        longHintEl.textContent = "Long-term (2+ din): Deep correction; gradual BUY / DCA socho, heavy SHORT avoid karo.";
+        longHintEl.textContent =
+          "Long-term (2+ din): Deep correction; gradual BUY / DCA socho, heavy SHORT avoid karo.";
       } else {
-        longHintEl.textContent = "Long-term (2+ din): Normal move; hold / wait, koi strong signal nahi.";
+        longHintEl.textContent =
+          "Long-term (2+ din): Normal move; hold / wait, koi strong signal nahi.";
       }
     }
 
     async function fetchPrice() {
       try {
-        const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT");
-        const data = await res.json(); /* BTC price Binance public ticker se lena is pattern me documented hai. [web:81] */
+        const res = await fetch(
+          "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+        );
+        const data = await res.json();
         const price = parseFloat(data.price);
-        if (!isNaN(price)) {
-          currentPrice = price;
-          priceEl.textContent = "$ " + formatPrice(price);
-          const now = new Date();
-          priceUpdatedEl.textContent = "Last update: " + now.toLocaleTimeString();
-          renderBalances();
 
-          priceHistory.push(currentPrice);
-          if (priceHistory.length > 20) priceHistory.shift();
-
-          updateHints();
+        if (!Number.isFinite(price)) {
+          throw new Error("Invalid price");
         }
-      } catch (e) {
+
+        currentPrice = price;
+        priceEl.textContent = "$ " + formatPrice(price);
+
+        const now = new Date();
+        priceUpdatedEl.textContent = "Last update: " + now.toLocaleTimeString();
+
+        priceHistory.push(currentPrice);
+        if (priceHistory.length > PRICE_HISTORY_LIMIT) {
+          priceHistory.shift();
+        }
+
+        renderBalances();
+        updateHints();
+      } catch (err) {
+        console.error(err);
         priceUpdatedEl.textContent = "Failed to fetch price.";
       }
     }
 
     function placeOrder(side) {
       orderMessageEl.textContent = "";
+
       if (!currentPrice) {
         orderMessageEl.textContent = "Price not loaded yet.";
         return;
       }
+
       const qty = parseFloat(qtyInput.value);
       if (!qty || qty <= 0) {
         orderMessageEl.textContent = "Enter a valid BTC quantity.";
         return;
       }
+
       const usdtCost = qty * currentPrice;
-      const inrCost = usdtCost * INR_PER_USDT;
+      const inrCost  = usdtCost * INR_PER_USDT;
 
       if (side === "buy") {
         if (inrCost > inrBalance) {
@@ -428,7 +473,8 @@
         }
         inrBalance -= inrCost;
         btcBalance += qty;
-        orderMessageEl.textContent = `BUY ${qty.toFixed(6)} BTC filled.`;
+        orderMessageEl.textContent =
+          `BUY ${qty.toFixed(6)} BTC filled.`;
       } else {
         if (qty > btcBalance) {
           orderMessageEl.textContent = "Not enough BTC balance.";
@@ -436,7 +482,8 @@
         }
         inrBalance += inrCost;
         btcBalance -= qty;
-        orderMessageEl.textContent = `SELL ${qty.toFixed(6)} BTC filled.`;
+        orderMessageEl.textContent =
+          `SELL ${qty.toFixed(6)} BTC filled.`;
       }
 
       addOrderRow(side, qty, currentPrice);
@@ -444,12 +491,20 @@
       qtyInput.value = "";
     }
 
+    // ---- EVENTS ----
     buyBtn.addEventListener("click", () => placeOrder("buy"));
     sellBtn.addEventListener("click", () => placeOrder("sell"));
 
+    qtyInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        placeOrder("buy");
+      }
+    });
+
+    // ---- INIT ----
     renderBalances();
     fetchPrice();
-    setInterval(fetchPrice, 15000);
+    setInterval(fetchPrice, FETCH_INTERVAL_MS);
   </script>
 </body>
 </html>
