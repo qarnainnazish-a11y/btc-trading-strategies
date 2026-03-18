@@ -96,6 +96,7 @@
       gap: 8px;
       margin-top: 8px;
       align-items: center;
+      flex-wrap: wrap;
     }
     .form-row input, .form-row select {
       flex: 1;
@@ -180,7 +181,7 @@
     <section class="card">
       <h2 style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center;">
         <span id="pair-title">BTC/USDT Perp Price</span>
-        <div style="display:flex; gap:6px; align-items:center;">
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
           <select id="symbol-select" style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937;">
             <option value="BTCUSDT" data-tv="BINANCE:BTCUSDT.P">BTC/USDT Perp</option>
             <option value="ETHUSDT" data-tv="BINANCE:ETHUSDT.P">ETH/USDT Perp</option>
@@ -203,6 +204,19 @@
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
+
+      <!-- Auto bet controls -->
+      <div class="form-row" style="margin-top:12px;">
+        <select id="auto-strategy">
+          <option value="auto">Auto (best hint)</option>
+          <option value="scalp">Scalping</option>
+          <option value="scalpVol">Scalping volatility</option>
+          <option value="scalpRange">Scalping range</option>
+          <option value="shortTerm">Short term</option>
+          <option value="longTerm">Long term</option>
+        </select>
+        <button id="auto-bet-btn" class="btn btn-neutral">Auto Bet</button>
+      </div>
 
       <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Futures Order</h2>
@@ -302,6 +316,7 @@
     BTC Futures Paper Trading · Frontend-only simulator · Data from Binance & TradingView
   </footer>
 
+  <!-- TradingView script -->
   <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
   <script>
     let tvWidget;
@@ -325,6 +340,7 @@
     }
   </script>
 
+  <!-- Logic -->
   <script>
     const INITIAL_WALLET_BALANCE = 1000;
     const PRICE_HISTORY_LIMIT  = 120;
@@ -341,8 +357,8 @@
     const priceHistory    = [];
     const priceStrHistory = [];
 
-    let longPosition  = null; // { qty, entry, lev }
-    let shortPosition = null; // { qty, entry, lev }
+    let longPosition  = null; // { qty, entry, lev, strategy? }
+    let shortPosition = null;
 
     const priceEl        = document.getElementById("price");
     const priceUpdatedEl = document.getElementById("price-updated");
@@ -379,6 +395,9 @@
     const symbolSearch    = document.getElementById("symbol-search");
     const symbolSearchBtn = document.getElementById("symbol-search-btn");
 
+    const autoStrategySelect = document.getElementById("auto-strategy");
+    const autoBetBtn         = document.getElementById("auto-bet-btn");
+
     const fmtUsdtShort = x =>
       Number(x).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
@@ -397,7 +416,7 @@
       totalRoeEl.textContent = roe.toFixed(2) + " %";
     }
 
-    function addFillRow(side, qty, priceStr) {
+    function addFillRow(side, qty, priceStr, strategyTag) {
       if (
         ordersListEl.children.length === 1 &&
         ordersListEl.children[0].querySelector(".muted")
@@ -409,9 +428,10 @@
       row.className = "order-row";
 
       const left = document.createElement("span");
+      const stratText = strategyTag ? ` · [${strategyTag}]` : "";
       left.innerHTML =
         `<span class="${side === "long" ? "order-side-long" : "order-side-short"}">` +
-        `${side.toUpperCase()}</span> · ${qty.toFixed(6)} ${currentBaseCoin}`;
+        `${side.toUpperCase()}</span> · ${qty.toFixed(6)} ${currentBaseCoin}${stratText}`;
 
       const right = document.createElement("span");
       right.textContent = currentSymbol + " @ " + priceStr + " USDT";
@@ -694,7 +714,7 @@
     qtyInput.addEventListener("input", updateMarginPreview);
     levSelect.addEventListener("change", updateMarginPreview);
 
-    function openPosition(side) {
+    function openPosition(side, strategyTag) {
       orderMessageEl.textContent = "";
       if (!currentPrice) {
         orderMessageEl.textContent = "Price not loaded yet.";
@@ -714,16 +734,16 @@
         return;
       }
 
-      const pos = { qty, entry: currentPrice, lev };
+      const pos = { qty, entry: currentPrice, lev, strategy: strategyTag || "manual" };
       if (side === "long") longPosition = pos;
       else shortPosition = pos;
 
       usedMargin += marginNeeded;
       const lastPriceStr =
         priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-      addFillRow(side, qty, lastPriceStr);
+      addFillRow(side, qty, lastPriceStr, strategyTag || "manual");
       orderMessageEl.textContent =
-        `${side.toUpperCase()} ${qty.toFixed(6)} ${currentBaseCoin} opened.`;
+        `${side.toUpperCase()} ${qty.toFixed(6)} ${currentBaseCoin} opened (${strategyTag || "manual"}).`;
 
       qtyInput.value = "";
       updateMarginPreview();
@@ -745,7 +765,7 @@
         usedMargin    -= margin;
         const lastPriceStr =
           priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-        addFillRow("long", longPosition.qty, lastPriceStr);
+        addFillRow("long", longPosition.qty, lastPriceStr, longPosition.strategy || "close");
         orderMessageEl.textContent =
           `LONG closed · Realized PnL: ${(pnl >= 0 ? "+" : "")}${fmtUsdtShort(pnl)} USDT`;
         longPosition = null;
@@ -759,7 +779,7 @@
         usedMargin    -= margin;
         const lastPriceStr =
           priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-        addFillRow("short", shortPosition.qty, lastPriceStr);
+        addFillRow("short", shortPosition.qty, lastPriceStr, shortPosition.strategy || "close");
         orderMessageEl.textContent =
           `SHORT closed · Realized PnL: ${(pnl >= 0 ? "+" : "")}${fmtUsdtShort(pnl)} USDT`;
         shortPosition = null;
@@ -768,10 +788,88 @@
       updatePnL();
     }
 
-    openLongBtn.addEventListener("click", () => openPosition("long"));
-    openShortBtn.addEventListener("click", () => openPosition("short"));
+    openLongBtn.addEventListener("click", () => openPosition("long", "manual"));
+    openShortBtn.addEventListener("click", () => openPosition("short", "manual"));
     closeLongBtn.addEventListener("click", () => closePosition("long"));
     closeShortBtn.addEventListener("click", () => closePosition("short"));
+
+    function pickSideFromText(txt) {
+      txt = (txt || "").toLowerCase();
+      if (txt.includes("buy") || txt.includes("long")) return "long";
+      if (txt.includes("short")) return "short";
+      return null;
+    }
+
+    function decideAutoFromHints() {
+      const hintScalp     = scalpHintEl.textContent || "";
+      const hintScalpVol  = scalpVolHintEl.textContent || "";
+      const hintRange     = scalpRangeHintEl.textContent || "";
+      const hintShortTerm = shortHintEl.textContent || "";
+      const hintLongTerm  = longHintEl.textContent || "";
+
+      const candidates = [
+        { text: hintRange,     tag: "Scalping range" },
+        { text: hintScalpVol,  tag: "Scalping vol" },
+        { text: hintScalp,     tag: "Scalping" },
+        { text: hintShortTerm, tag: "Short term" },
+        { text: hintLongTerm,  tag: "Long term" }
+      ];
+
+      for (const c of candidates) {
+        const side = pickSideFromText(c.text);
+        if (side) return { side, tag: c.tag };
+      }
+      return null;
+    }
+
+    autoBetBtn.addEventListener("click", () => {
+      if (!currentPrice) {
+        orderMessageEl.textContent = "Price not loaded yet.";
+        return;
+      }
+
+      const qty = parseFloat(qtyInput.value);
+      if (!qty || qty <= 0) {
+        orderMessageEl.textContent = "Enter a valid quantity first.";
+        return;
+      }
+
+      let side, tag;
+      const selected = autoStrategySelect.value;
+
+      if (selected === "auto") {
+        const result = decideAutoFromHints();
+        if (!result) {
+          orderMessageEl.textContent = "Hints se clear direction nahi; auto bet skip.";
+          return;
+        }
+        side = result.side;
+        tag  = result.tag;
+      } else {
+        let txt = "";
+        if (selected === "scalp") txt = scalpHintEl.textContent;
+        if (selected === "scalpVol") txt = scalpVolHintEl.textContent;
+        if (selected === "scalpRange") txt = scalpRangeHintEl.textContent;
+        if (selected === "shortTerm") txt = shortHintEl.textContent;
+        if (selected === "longTerm") txt = longHintEl.textContent;
+
+        side = pickSideFromText(txt);
+        if (!side) {
+          orderMessageEl.textContent = "Is strategy ke hint me clear long/short nahi; auto bet skip.";
+          return;
+        }
+        const map = {
+          scalp: "Scalping",
+          scalpVol: "Scalping vol",
+          scalpRange: "Scalping range",
+          shortTerm: "Short term",
+          longTerm: "Long term"
+        };
+        tag = map[selected] || "auto";
+      }
+
+      openPosition(side, tag);
+    });
 
     const parseUserSymbolInput = raw => {
       if (!raw) return null;
