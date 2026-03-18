@@ -280,8 +280,8 @@
   <!-- Logic -->
   <script>
     const INITIAL_USDT_BALANCE = 10000;
-    const PRICE_HISTORY_LIMIT = 20;
-    const FETCH_INTERVAL_MS = 15000;
+    const PRICE_HISTORY_LIMIT  = 100;   // zyada history, taaki windows kaam karein
+    const FETCH_INTERVAL_MS    = 15000;
 
     let currentSymbol   = "BTCUSDT";          // BTCUSDT or BTCUSDT.P
     let currentTvSymbol = "BINANCE:BTCUSDT";
@@ -327,7 +327,7 @@
       totalValueEl.textContent = formatUsdtShort(total) + " USDT";
     };
 
-    const addOrderRow = (side, qty, price) => {
+    const addOrderRow = (side, qty, priceStr) => {
       if (
         ordersListEl.children.length === 1 &&
         ordersListEl.children[0].querySelector(".muted")
@@ -345,7 +345,7 @@
 
       const right = document.createElement("span");
       right.textContent =
-        currentSymbol + " @ " + price + " USDT";
+        currentSymbol + " @ " + priceStr + " USDT";
 
       row.appendChild(left);
       row.appendChild(right);
@@ -358,52 +358,68 @@
       longHintEl.textContent  = "Long-term: waiting for data…";
     };
 
+    // percentage change helper for different windows
+    const getChangePct = windowSize => {
+      if (priceHistory.length < 2) return null;
+      const len        = priceHistory.length;
+      const startIndex = Math.max(0, len - windowSize);
+      const first      = priceHistory[startIndex];
+      const last       = priceHistory[len - 1];
+      if (!first || !last) return null;
+      return ((last - first) / first) * 100;
+    };
+
     const updateHints = () => {
-      if (priceHistory.length < 5) {
-        resetHints();
-        return;
-      }
-      const last  = priceHistory[priceHistory.length - 1];
-      const first = priceHistory[0];
-      const changePct = ((last - first) / first) * 100;
+      const scalpChange = getChangePct(10);  // ~10 ticks (2–3 min)
+      const shortChange = getChangePct(40);  // ~40 ticks (10 min)
+      const longChange  = getChangePct(80);  // ~80 ticks (20+ min)
 
-      if (changePct <= -0.2 && changePct > -1.2) {
+      // 1) Scalping
+      if (scalpChange == null) {
+        scalpHintEl.textContent = "Scalping: waiting for data…";
+      } else if (scalpChange <= -0.15 && scalpChange > -0.8) {
         scalpHintEl.textContent =
-          "Scalping: Small dip, BUY scalp 5–10 min ke liye try kar sakte ho.";
-      } else if (changePct < -1.2) {
+          "Scalping: Chhota dip, BUY scalp 5–10 min ke liye consider kar sakte ho.";
+      } else if (scalpChange <= -0.8) {
         scalpHintEl.textContent =
-          "Scalping: Strong dump, sirf high‑risk BUY scalp, tight SL zaruri.";
-      } else if (changePct >= 0.2 && changePct < 1.2) {
+          "Scalping: Strong dump, sirf experienced ho to BUY scalp with tight SL.";
+      } else if (scalpChange >= 0.15 && scalpChange < 0.8) {
         scalpHintEl.textContent =
-          "Scalping: Small pump, SHORT scalp 5–10 min ke liye socho.";
-      } else if (changePct >= 1.2) {
+          "Scalping: Chhota pump, SHORT scalp 5–10 min ke liye socho.";
+      } else if (scalpChange >= 0.8) {
         scalpHintEl.textContent =
-          "Scalping: Strong pump, aggressive SHORT scalp possible but risky.";
+          "Scalping: Strong pump, aggressive SHORT scalp possible but high risk.";
       } else {
         scalpHintEl.textContent =
-          "Scalping: Flat move, entry force mat karo.";
+          "Scalping: Bilkul flat, entry force mat karo.";
       }
 
-      if (changePct > 1.5) {
+      // 2) Short-term
+      if (shortChange == null) {
+        shortHintEl.textContent = "Short-term: waiting for data…";
+      } else if (shortChange > 1.0) {
         shortHintEl.textContent =
-          "Short-term: Strong up move; pullback wait karo 4–12 hours ke liye.";
-      } else if (changePct < -1.5) {
+          "Short-term: Strong up move; pullback ka wait karo 1–4 ghante ke liye.";
+      } else if (shortChange < -1.0) {
         shortHintEl.textContent =
-          "Short-term: Dump hua hai; chhota BUY swing bounce ke liye.";
+          "Short-term: Dump hua; oversold bounce ke liye gradual BUY plan kar sakte ho.";
       } else {
         shortHintEl.textContent =
-          "Short-term: Sideways zone; range trade ya no‑trade.";
+          "Short-term: Sideways; range trading ya patience better hai.";
       }
 
-      if (changePct > 3) {
+      // 3) Long-term
+      if (longChange == null) {
+        longHintEl.textContent = "Long-term: waiting for data…";
+      } else if (longChange > 3) {
         longHintEl.textContent =
-          "Long-term: Bullish structure; fresh SHORT risky.";
-      } else if (changePct < -3) {
+          "Long-term: Structure bullish; fresh SHORT avoid karo, dips pe accumulation better.";
+      } else if (longChange < -3) {
         longHintEl.textContent =
-          "Long-term: Deep correction; gradual BUY / DCA socho.";
+          "Long-term: Strong correction; DCA / gradual BUY plan sahi ho sakta hai.";
       } else {
         longHintEl.textContent =
-          "Long-term: Normal move; hold / wait.";
+          "Long-term: Normal range; existing position manage karo, new big bet avoid.";
       }
     };
 
@@ -419,10 +435,8 @@
 
         const res  = await fetch(endpoint);
         const data = await res.json();
-        // Binance price as string with full decimals [web:18][web:21]
         currentPrice = parseFloat(data.price);
 
-        // Full price string show karo
         priceEl.textContent = data.price + " USDT";
 
         const now = new Date();
@@ -476,7 +490,8 @@
           `SELL ${qty.toFixed(6)} ${currentBaseCoin} filled.`;
       }
 
-      addOrderRow(side, qty, data.price || currentPrice.toString());
+      const priceStr = priceEl.textContent.replace(" USDT","") || currentPrice.toString();
+      addOrderRow(side, qty, priceStr);
       renderBalances();
       qtyInput.value = "";
     };
