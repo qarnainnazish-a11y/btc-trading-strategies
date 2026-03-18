@@ -199,28 +199,40 @@
 
     <!-- Left: Price + order form -->
     <section class="card">
-      <h2 style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center;">
         <span id="pair-title">BTC/USDT Price</span>
-        <select id="symbol-select" style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937;">
-          <option value="BTCUSDT" data-tv="BINANCE:BTCUSDT">BTC/USDT</option>
-          <option value="ETHUSDT" data-tv="BINANCE:ETHUSDT">ETH/USDT</option>
-          <option value="BNBUSDT" data-tv="BINANCE:BNBUSDT">BNB/USDT</option>
-          <option value="SOLUSDT" data-tv="BINANCE:SOLUSDT">SOL/USDT</option>
-        </select>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select id="symbol-select" style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937;">
+            <option value="BTCUSDT" data-tv="BINANCE:BTCUSDT">BTC/USDT</option>
+            <option value="ETHUSDT" data-tv="BINANCE:ETHUSDT">ETH/USDT</option>
+            <option value="BNBUSDT" data-tv="BINANCE:BNBUSDT">BNB/USDT</option>
+            <option value="SOLUSDT" data-tv="BINANCE:SOLUSDT">SOL/USDT</option>
+          </select>
+          <input
+            id="symbol-search"
+            type="text"
+            placeholder="Search symbol (e.g. pepeusdt)"
+            style="font-size:0.8rem; padding:2px 6px; border-radius:4px; background:#020617; color:#e5e7eb; border:1px solid #1f2937; min-width:120px;"
+          />
+          <button id="symbol-search-btn" class="btn" style="font-size:0.78rem; padding:4px 8px;">
+            Go
+          </button>
+        </div>
       </h2>
+      <div class="muted" style="margin-bottom:4px;">Spot symbols only (e.g. BTCUSDT, ETHUSDT). Uses Binance price + TradingView chart.</div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
 
       <div style="margin-top: 16px; border-top: 1px solid #1f2937; padding-top: 10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Place Order</h2>
-        <div class="muted">Market orders using fake INR balance. Quantity is in BTC.</div>
+        <div class="muted">Market orders using fake INR balance. Quantity is in coin units.</div>
 
         <div class="form-row">
-          <input id="qty-input" type="number" step="0.0001" min="0" placeholder="Quantity (BTC)" />
+          <input id="qty-input" type="number" step="0.0001" min="0" placeholder="Quantity" />
         </div>
         <div class="form-row">
-          <button id="buy-btn" class="btn btn-buy">Buy BTC</button>
-          <button id="sell-btn" class="btn btn-sell">Sell BTC</button>
+          <button id="buy-btn" class="btn btn-buy">Buy</button>
+          <button id="sell-btn" class="btn btn-sell">Sell</button>
         </div>
         <div class="muted" id="order-message" style="margin-top:6px; min-height:18px;"></div>
       </div>
@@ -247,8 +259,8 @@
           <div class="balance-value" id="inr-balance">₹ --</div>
         </div>
         <div class="balance-item">
-          <div class="balance-label">BTC Holdings</div>
-          <div class="balance-value" id="btc-balance">-- BTC</div>
+          <div class="balance-label">Coin Holdings</div>
+          <div class="balance-value" id="btc-balance">--</div>
         </div>
       </div>
       <div class="balance-item" style="margin-top:8px;">
@@ -308,10 +320,11 @@
     // coins
     let currentSymbol   = "BTCUSDT";          // Binance REST symbol
     let currentTvSymbol = "BINANCE:BTCUSDT";  // TradingView symbol
+    let currentBaseCoin = "BTC";              // for labels
 
     // ---- STATE ----
     let inrBalance = INITIAL_INR_BALANCE;
-    let btcBalance = 0;
+    let coinBalance = 0;
     let currentPrice = null;
     const priceHistory = [];
 
@@ -319,7 +332,7 @@
     const priceEl        = document.getElementById("price");
     const priceUpdatedEl = document.getElementById("price-updated");
     const inrBalanceEl   = document.getElementById("inr-balance");
-    const btcBalanceEl   = document.getElementById("btc-balance");
+    const coinBalanceEl  = document.getElementById("btc-balance");
     const totalValueEl   = document.getElementById("total-value");
     const qtyInput       = document.getElementById("qty-input");
     const buyBtn         = document.getElementById("buy-btn");
@@ -331,8 +344,10 @@
     const shortHintEl = document.getElementById("short-hint");
     const longHintEl  = document.getElementById("long-hint");
 
-    const symbolSelect = document.getElementById("symbol-select");
-    const pairTitle    = document.getElementById("pair-title");
+    const symbolSelect    = document.getElementById("symbol-select");
+    const pairTitle       = document.getElementById("pair-title");
+    const symbolSearch    = document.getElementById("symbol-search");
+    const symbolSearchBtn = document.getElementById("symbol-search-btn");
 
     // ---- HELPERS ----
     function formatInr(x) {
@@ -345,14 +360,14 @@
 
     function renderBalances() {
       inrBalanceEl.textContent = "₹ " + formatInr(inrBalance);
-      btcBalanceEl.textContent = btcBalance.toFixed(6) + " BTC";
+      coinBalanceEl.textContent = coinBalance.toFixed(6) + " " + currentBaseCoin;
 
       if (!currentPrice) {
         totalValueEl.textContent = "₹ --";
         return;
       }
 
-      const usdtValue = btcBalance * currentPrice;
+      const usdtValue = coinBalance * currentPrice;
       const inrValue  = usdtValue * INR_PER_USDT + inrBalance;
       totalValueEl.textContent = "₹ " + formatInr(inrValue);
     }
@@ -371,10 +386,10 @@
       const left = document.createElement("span");
       left.innerHTML =
         `<span class="${side === "buy" ? "order-side-buy" : "order-side-sell"}">` +
-        `${side.toUpperCase()}</span> · ${qty.toFixed(6)} BTC`;
+        `${side.toUpperCase()}</span> · ${qty.toFixed(6)} ${currentBaseCoin}`;
 
       const right = document.createElement("span");
-      right.textContent = "@ " + formatPrice(price) + " USDT";
+      right.textContent = currentSymbol + " @ " + formatPrice(price) + " USDT";
 
       row.appendChild(left);
       row.appendChild(right);
@@ -465,7 +480,7 @@
         updateHints();
       } catch (err) {
         console.error(err);
-        priceUpdatedEl.textContent = "Failed to fetch price.";
+        priceUpdatedEl.textContent = "Failed to fetch price (maybe symbol invalid?).";
       }
     }
 
@@ -479,7 +494,7 @@
 
       const qty = parseFloat(qtyInput.value);
       if (!qty || qty <= 0) {
-        orderMessageEl.textContent = "Enter a valid BTC quantity.";
+        orderMessageEl.textContent = "Enter a valid quantity.";
         return;
       }
 
@@ -492,23 +507,63 @@
           return;
         }
         inrBalance -= inrCost;
-        btcBalance += qty;
+        coinBalance += qty;
         orderMessageEl.textContent =
-          `BUY ${qty.toFixed(6)} BTC filled.`;
+          `BUY ${qty.toFixed(6)} ${currentBaseCoin} filled.`;
       } else {
-        if (qty > btcBalance) {
-          orderMessageEl.textContent = "Not enough BTC balance.";
+        if (qty > coinBalance) {
+          orderMessageEl.textContent = "Not enough holdings.";
           return;
         }
         inrBalance += inrCost;
-        btcBalance -= qty;
+        coinBalance -= qty;
         orderMessageEl.textContent =
-          `SELL ${qty.toFixed(6)} BTC filled.`;
+          `SELL ${qty.toFixed(6)} ${currentBaseCoin} filled.`;
       }
 
       addOrderRow(side, qty, currentPrice);
       renderBalances();
       qtyInput.value = "";
+    }
+
+    function parseUserSymbolInput(raw) {
+      if (!raw) return null;
+      let s = raw.trim().toUpperCase();
+      s = s.replace(/\s+/g, "");
+      s = s.replace("/", "");
+      if (!s.endsWith("USDT")) {
+        s = s + "USDT";
+      }
+      return s;
+    }
+
+    function updateSymbol(symbol) {
+      currentSymbol = symbol;
+      currentTvSymbol = "BINANCE:" + symbol;
+      currentBaseCoin = symbol.replace("USDT", "");
+
+      const label = currentBaseCoin + "/USDT";
+      pairTitle.textContent = label + " Price";
+
+      let found = false;
+      for (const opt of symbolSelect.options) {
+        if (opt.value === symbol) {
+          symbolSelect.value = symbol;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        symbolSelect.value = "BTCUSDT";
+      }
+
+      currentPrice = null;
+      priceHistory.length = 0;
+      resetHintsWaiting();
+      renderBalances();
+
+      initTradingView(currentTvSymbol);
+      fetchPrice();
     }
 
     // ---- EVENTS ----
@@ -523,19 +578,24 @@
 
     symbolSelect.addEventListener("change", () => {
       const option = symbolSelect.selectedOptions[0];
-      currentSymbol   = option.value;          // e.g. "ETHUSDT"
-      currentTvSymbol = option.dataset.tv;     // e.g. "BINANCE:ETHUSDT"
+      const symbol = option.value;
+      updateSymbol(symbol);
+    });
 
-      const label = option.textContent.trim(); // "ETH/USDT"
-      pairTitle.textContent = label + " Price";
+    symbolSearchBtn.addEventListener("click", () => {
+      const parsed = parseUserSymbolInput(symbolSearch.value);
+      if (!parsed) {
+        orderMessageEl.textContent = "Enter a symbol like BTCUSDT or pepe/usdt.";
+        return;
+      }
+      orderMessageEl.textContent = "";
+      updateSymbol(parsed);
+    });
 
-      currentPrice = null;
-      priceHistory.length = 0;
-      resetHintsWaiting();
-      renderBalances();
-
-      initTradingView(currentTvSymbol);
-      fetchPrice();
+    symbolSearch.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        symbolSearchBtn.click();
+      }
     });
 
     // ---- INIT ----
