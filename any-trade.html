@@ -220,7 +220,7 @@
         </div>
       </h2>
       <div class="muted" style="margin-bottom:4px;">
-        Paste TradingView link or type symbol (BTCUSDT, ETHUSDT, pepe/usdt). BTC/ETH spot price, others futures price. [web:18][web:21]
+        Paste TradingView link or type symbol (BTCUSDT, BTCUSDT.P, pepe/usdt). “.P” → Binance futures, else spot. [web:18][web:21][web:24]
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
@@ -239,7 +239,6 @@
         <div class="muted" id="order-message" style="margin-top:6px; min-height:18px;"></div>
       </div>
 
-      <!-- Strategy hints block -->
       <div style="margin-top: 16px; border-top: 1px solid #1f2937; padding-top: 10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Strategy Hints</h2>
         <div class="muted" id="scalp-hint">Scalping: waiting for data…</div>
@@ -313,24 +312,20 @@
 
   <!-- Paper trading + hints logic -->
   <script>
-    // ---- CONFIG ----
     const INR_PER_USDT = 85;
     const INITIAL_INR_BALANCE = 100000;
     const PRICE_HISTORY_LIMIT = 20;
     const FETCH_INTERVAL_MS = 15000;
 
-    // coins
-    let currentSymbol   = "BTCUSDT";          // base symbol
+    let currentSymbol   = "BTCUSDT";          // base symbol (spot-style)
     let currentTvSymbol = "BINANCE:BTCUSDT";  // TradingView symbol
-    let currentBaseCoin = "BTC";              // for labels
+    let currentBaseCoin = "BTC";
 
-    // ---- STATE ----
     let inrBalance = INITIAL_INR_BALANCE;
     let coinBalance = 0;
     let currentPrice = null;
     const priceHistory = [];
 
-    // ---- DOM ----
     const priceEl        = document.getElementById("price");
     const priceUpdatedEl = document.getElementById("price-updated");
     const inrBalanceEl   = document.getElementById("inr-balance");
@@ -351,7 +346,6 @@
     const symbolSearch    = document.getElementById("symbol-search");
     const symbolSearchBtn = document.getElementById("symbol-search-btn");
 
-    // ---- HELPERS ----
     function formatInr(x) {
       return x.toLocaleString("en-IN", { maximumFractionDigits: 2 });
     }
@@ -454,18 +448,19 @@
       }
     }
 
-    // Price fetch: BTC/ETH -> spot, others -> futures [web:18][web:21]
+    // PRICE FETCH:
+    // - Agar symbol ".P" se end hota hai -> Binance futures (fapi)
+    // - Warna Binance spot (api) [web:18][web:21]
     async function fetchPrice() {
       try {
-        let base = currentSymbol
-          .replace(".P", "")
-          .replace("_PERP", "");
+        const isPerp = currentSymbol.endsWith(".P");
+        const base = currentSymbol.replace(".P", "").replace("_PERP", "");
 
         let endpoint;
-        if (base === "BTCUSDT" || base === "ETHUSDT") {
-          endpoint = "https://api.binance.com/api/v3/ticker/price?symbol=" + base;
-        } else {
+        if (isPerp) {
           endpoint = "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + base;
+        } else {
+          endpoint = "https://api.binance.com/api/v3/ticker/price?symbol=" + base;
         }
 
         const res = await fetch(endpoint);
@@ -535,7 +530,7 @@
       qtyInput.value = "";
     }
 
-    // Parse TradingView URL or raw symbol [web:13][web:24][web:18]
+    // TradingView URL ya raw symbol parse [web:13][web:24][web:18]
     function parseUserSymbolInput(raw) {
       if (!raw) return null;
       let s = raw.trim();
@@ -547,7 +542,7 @@
           const tvParam = url.searchParams.get("tvwidgetsymbol");
           if (tvParam) {
             const parts = tvParam.split(":");
-            const tvSymbol = parts[parts.length - 1]; // e.g. ETHUSDT.P
+            const tvSymbol = parts[parts.length - 1]; // e.g. BTCUSDT.P
             return tvSymbol.toUpperCase();
           }
 
@@ -572,8 +567,8 @@
     }
 
     function updateSymbol(symbol) {
-      currentSymbol = symbol;
-      currentTvSymbol = "BINANCE:" + symbol;
+      currentSymbol = symbol;                 // e.g. BTCUSDT or BTCUSDT.P
+      currentTvSymbol = "BINANCE:" + symbol;  // TV ko futures/spot dono chalega
       currentBaseCoin = symbol.replace("USDT.P", "").replace("USDT", "");
 
       const label = currentBaseCoin + "/USDT";
@@ -600,14 +595,11 @@
       fetchPrice();
     }
 
-    // ---- EVENTS ----
     buyBtn.addEventListener("click", () => placeOrder("buy"));
     sellBtn.addEventListener("click", () => placeOrder("sell"));
 
     qtyInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        placeOrder("buy");
-      }
+      if (e.key === "Enter") placeOrder("buy");
     });
 
     symbolSelect.addEventListener("change", () => {
@@ -619,7 +611,7 @@
     symbolSearchBtn.addEventListener("click", () => {
       const parsed = parseUserSymbolInput(symbolSearch.value);
       if (!parsed) {
-        orderMessageEl.textContent = "Paste a TradingView link or enter symbol like BTCUSDT / pepe/usdt.";
+        orderMessageEl.textContent = "Paste a TradingView link or enter symbol like BTCUSDT / BTCUSDT.P / pepe/usdt.";
         return;
       }
       orderMessageEl.textContent = "";
@@ -627,12 +619,9 @@
     });
 
     symbolSearch.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        symbolSearchBtn.click();
-      }
+      if (e.key === "Enter") symbolSearchBtn.click();
     });
 
-    // ---- INIT ----
     renderBalances();
     initTradingView(currentTvSymbol);
     fetchPrice();
