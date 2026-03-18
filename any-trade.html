@@ -220,7 +220,7 @@
         </div>
       </h2>
       <div class="muted" style="margin-bottom:4px;">
-        Paste TradingView link or type symbol (e.g. BTCUSDT, pepe/usdt). Futures price via Binance USDT-M. [web:21]
+        Paste TradingView link or type symbol (BTCUSDT, ETHUSDT, pepe/usdt). BTC/ETH spot price, others futures price. [web:18][web:21]
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
@@ -320,7 +320,7 @@
     const FETCH_INTERVAL_MS = 15000;
 
     // coins
-    let currentSymbol   = "BTCUSDT";          // Futures REST symbol base
+    let currentSymbol   = "BTCUSDT";          // base symbol
     let currentTvSymbol = "BINANCE:BTCUSDT";  // TradingView symbol
     let currentBaseCoin = "BTC";              // for labels
 
@@ -454,15 +454,21 @@
       }
     }
 
-    // Futures price fetch [web:21]
+    // Price fetch: BTC/ETH -> spot, others -> futures [web:18][web:21]
     async function fetchPrice() {
       try {
-        // currentSymbol e.g. "BTCUSDT" or "ETHUSDT.P" -> futures endpoint expects base like "BTCUSDT" [web:21]
-        const futSymbol = currentSymbol.replace(".P", "").replace("_PERP", "");
+        let base = currentSymbol
+          .replace(".P", "")
+          .replace("_PERP", "");
 
-        const res = await fetch(
-          "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + futSymbol
-        );
+        let endpoint;
+        if (base === "BTCUSDT" || base === "ETHUSDT") {
+          endpoint = "https://api.binance.com/api/v3/ticker/price?symbol=" + base;
+        } else {
+          endpoint = "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + base;
+        }
+
+        const res = await fetch(endpoint);
         const data = await res.json();
         const price = parseFloat(data.price);
         if (!Number.isFinite(price)) throw new Error("Invalid price");
@@ -613,7 +619,7 @@
     symbolSearchBtn.addEventListener("click", () => {
       const parsed = parseUserSymbolInput(symbolSearch.value);
       if (!parsed) {
-        orderMessageEl.textContent = "Paste a TradingView link or enter symbol like BTCUSDT / BTCUSDT.P / pepe/usdt.";
+        orderMessageEl.textContent = "Paste a TradingView link or enter symbol like BTCUSDT / pepe/usdt.";
         return;
       }
       orderMessageEl.textContent = "";
