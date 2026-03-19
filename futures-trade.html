@@ -273,7 +273,7 @@
           <button id="start-live-btn" class="btn btn-long">Start Live Auto Trade</button>
           <button id="stop-live-btn" class="btn btn-neutral">Stop Live Auto</button>
           <span class="muted" style="font-size:0.78rem;">
-            Sirf jinke aage **tick** hai wahi strategy live auto me use hogi.
+            Sirf jinke aage tick hai wahi strategy live auto me use hogi.
           </span>
         </div>
       </div>
@@ -281,7 +281,7 @@
       <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Futures Order</h2>
         <div class="muted">
-          Market order in USDT-margined perpetuals. Quantity is auto-calculated from USDT amount. [web:163][web:182]
+          Market order in USDT-margined perpetuals. Quantity is auto-calculated from USDT amount. [web:163][web:220]
         </div>
 
         <div class="form-row">
@@ -322,7 +322,7 @@
     <section class="card">
       <h2>Futures Wallet</h2>
       <p class="muted" style="margin:0 0 6px;">
-        USDT-M isolated margin · real-time unrealized PnL. [web:167]
+        USDT-M isolated margin · real-time unrealized PnL. [web:218]
       </p>
 
       <div class="balance-grid">
@@ -462,7 +462,6 @@
     const autoBetBtn         = document.getElementById("auto-bet-btn");
     const startLiveBtn       = document.getElementById("start-live-btn");
     const stopLiveBtn        = document.getElementById("stop-live-btn");
-
     const liveStrategyBox    = document.getElementById("live-strategy-box");
 
     const fmtUsdtShort = x =>
@@ -736,18 +735,22 @@
       let totalUnrealizedShort = 0;
 
       if (longPositions.length) {
-        let lines = [];
+        let parts = [];
         longPositions.forEach(pos => {
           const diff = currentPrice - pos.entry;
           const pnl  = diff * pos.qty * pos.lev;
           totalUnrealizedLong += pnl;
-          lines.push(
-            `#${pos.id}: ${pos.qty.toFixed(6)} ${currentBaseCoin} · Entry: ${fmtUsdtShort(pos.entry)} · Lev: ${pos.lev}x`
+
+          const pnlText = (pnl >= 0 ? "+" : "") + fmtUsdtShort(pnl);
+          const pnlClass = pnl > 0 ? "pnl-positive" : pnl < 0 ? "pnl-negative" : "";
+          parts.push(
+            `#${pos.id}: ${pos.qty.toFixed(6)} ${currentBaseCoin} @ ${fmtUsdtShort(pos.entry)} · ` +
+            `<span class="${pnlClass}">${pnlText} USDT</span>`
           );
         });
-        longPosEl.textContent = lines.join(" | ");
+        longPosEl.innerHTML = parts.join("<br>");
         longPnlEl.textContent =
-          "PnL (longs): " + (totalUnrealizedLong >= 0 ? "+" : "") + fmtUsdtShort(totalUnrealizedLong) + " USDT";
+          "Total PnL (longs): " + (totalUnrealizedLong >= 0 ? "+" : "") + fmtUsdtShort(totalUnrealizedLong) + " USDT";
         longPnlEl.className =
           "muted " + (totalUnrealizedLong > 0 ? "pnl-positive" : totalUnrealizedLong < 0 ? "pnl-negative" : "");
       } else {
@@ -757,18 +760,22 @@
       }
 
       if (shortPositions.length) {
-        let lines = [];
+        let parts = [];
         shortPositions.forEach(pos => {
           const diff = pos.entry - currentPrice;
           const pnl  = diff * pos.qty * pos.lev;
           totalUnrealizedShort += pnl;
-          lines.push(
-            `#${pos.id}: ${pos.qty.toFixed(6)} ${currentBaseCoin} · Entry: ${fmtUsdtShort(pos.entry)} · Lev: ${pos.lev}x`
+
+          const pnlText = (pnl >= 0 ? "+" : "") + fmtUsdtShort(pnl);
+          const pnlClass = pnl > 0 ? "pnl-positive" : pnl < 0 ? "pnl-negative" : "";
+          parts.push(
+            `#${pos.id}: ${pos.qty.toFixed(6)} ${currentBaseCoin} @ ${fmtUsdtShort(pos.entry)} · ` +
+            `<span class="${pnlClass}">${pnlText} USDT</span>`
           );
         });
-        shortPosEl.textContent = lines.join(" | ");
+        shortPosEl.innerHTML = parts.join("<br>");
         shortPnlEl.textContent =
-          "PnL (shorts): " + (totalUnrealizedShort >= 0 ? "+" : "") + fmtUsdtShort(totalUnrealizedShort) + " USDT";
+          "Total PnL (shorts): " + (totalUnrealizedShort >= 0 ? "+" : "") + fmtUsdtShort(totalUnrealizedShort) + " USDT";
         shortPnlEl.className =
           "muted " + (totalUnrealizedShort > 0 ? "pnl-positive" : totalUnrealizedShort < 0 ? "pnl-negative" : "");
       } else {
@@ -1048,7 +1055,7 @@
       inputs.forEach(i => {
         if (i.checked) selected.push(i.value);
       });
-      if (!selected.length) return []; // kuch select nahi hai
+      if (!selected.length) return [];
       return selected;
     }
 
