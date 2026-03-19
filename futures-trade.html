@@ -200,7 +200,7 @@
         </div>
       </h2>
       <div class="muted" style="margin-bottom:4px;">
-        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:156]
+        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:152]
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
@@ -220,6 +220,14 @@
 
       <!-- Live auto trade controls -->
       <div class="form-row">
+        <select id="live-strategy">
+          <option value="auto">Live: Auto (best hint)</option>
+          <option value="scalp">Live: Scalping</option>
+          <option value="scalpVol">Live: Scalping volatility</option>
+          <option value="scalpRange">Live: Scalping range</option>
+          <option value="shortTerm">Live: Short term</option>
+          <option value="longTerm">Live: Long term</option>
+        </select>
         <button id="start-live-btn" class="btn btn-long">Start Live Auto Trade</button>
         <button id="stop-live-btn" class="btn btn-neutral">Stop Live Auto</button>
       </div>
@@ -227,7 +235,7 @@
       <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Futures Order</h2>
         <div class="muted">
-          Market order in USDT-margined perpetuals. Quantity is auto-calculated from USDT amount. [web:163][web:166]
+          Market order in USDT-margined perpetuals. Quantity is auto-calculated from USDT amount. [web:163][web:182]
         </div>
 
         <div class="form-row">
@@ -406,6 +414,7 @@
 
     const autoStrategySelect = document.getElementById("auto-strategy");
     const autoBetBtn         = document.getElementById("auto-bet-btn");
+    const liveStrategySelect = document.getElementById("live-strategy");
     const startLiveBtn       = document.getElementById("start-live-btn");
     const stopLiveBtn        = document.getElementById("stop-live-btn");
 
@@ -870,6 +879,27 @@
       return null;
     }
 
+    function decideFromSingleStrategy(strategyKey) {
+      let txt = "";
+      if (strategyKey === "scalp") txt = scalpHintEl.textContent;
+      if (strategyKey === "scalpVol") txt = scalpVolHintEl.textContent;
+      if (strategyKey === "scalpRange") txt = scalpRangeHintEl.textContent;
+      if (strategyKey === "shortTerm") txt = shortHintEl.textContent;
+      if (strategyKey === "longTerm") txt = longHintEl.textContent;
+
+      const side = pickSideFromText(txt);
+      if (!side) return null;
+
+      const map = {
+        scalp: "Scalping",
+        scalpVol: "Scalping vol",
+        scalpRange: "Scalping range",
+        shortTerm: "Short term",
+        longTerm: "Long term"
+      };
+      return { side, tag: map[strategyKey] || "auto" };
+    }
+
     autoBetBtn.addEventListener("click", () => {
       if (!currentPrice) {
         orderMessageEl.textContent = "Price not loaded yet.";
@@ -894,26 +924,13 @@
         side = result.side;
         tag  = result.tag;
       } else {
-        let txt = "";
-        if (selected === "scalp") txt = scalpHintEl.textContent;
-        if (selected === "scalpVol") txt = scalpVolHintEl.textContent;
-        if (selected === "scalpRange") txt = scalpRangeHintEl.textContent;
-        if (selected === "shortTerm") txt = shortHintEl.textContent;
-        if (selected === "longTerm") txt = longHintEl.textContent;
-
-        side = pickSideFromText(txt);
-        if (!side) {
+        const res = decideFromSingleStrategy(selected);
+        if (!res) {
           orderMessageEl.textContent = "Is strategy ke hint me clear long/short nahi; auto bet skip.";
           return;
         }
-        const map = {
-          scalp: "Scalping",
-          scalpVol: "Scalping vol",
-          scalpRange: "Scalping range",
-          shortTerm: "Short term",
-          longTerm: "Long term"
-        };
-        tag = map[selected] || "auto";
+        side = res.side;
+        tag  = res.tag;
       }
 
       openPosition(side, tag);
@@ -998,9 +1015,20 @@
         return;
       }
 
-      const decision = decideAutoFromHints();
+      let decision;
+      const liveKey = liveStrategySelect.value || "auto";
+
+      if (liveKey === "auto") {
+        decision = decideAutoFromHints();
+      } else {
+        decision = decideFromSingleStrategy(liveKey);
+      }
+
       if (!decision) {
-        orderMessageEl.textContent = "Live auto: hints me clear direction nahi.";
+        orderMessageEl.textContent =
+          "Live auto: " + (liveKey === "auto"
+            ? "hints me clear direction nahi."
+            : "is live strategy ke hint me clear long/short nahi.");
         return;
       }
 
