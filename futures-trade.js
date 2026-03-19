@@ -166,10 +166,10 @@ const getScalpStats = (windowSize = 20) => {
 
 // simple straight-move detector: left leg + right retrace (approx V idea)
 function detectApproxLegs(opts = {}) {
-  const lookback   = opts.lookback || 40;   // past candles
-  const minLegPct  = opts.minLegPct || 1.5; // left leg minimum % move
-  const enterPct   = opts.enterPct || 0.10; // 10% retrace for entry
-  const exitPct    = opts.exitPct  || 0.30; // 30% move for exit
+  const lookback   = opts.lookback || 30;   // past candles
+  const minLegPct  = opts.minLegPct || 0.5; // left leg minimum % move
+  const enterPct   = opts.enterPct || 0.08; // 8% retrace for entry
+  const exitPct    = opts.exitPct  || 0.25; // 25% move for exit
 
   const len = priceHistory.length;
   if (len < 5) return null;
@@ -197,11 +197,7 @@ function detectApproxLegs(opts = {}) {
 
   const leftEnd = slice[extremeIdx];
 
-  const legPct =
-    trend === "down"
-      ? ((leftEnd - start) / start) * 100
-      : ((leftEnd - start) / start) * 100;
-
+  const legPct = ((leftEnd - start) / start) * 100;
   if (Math.abs(legPct) < minLegPct) return null;
 
   const rest = slice.slice(extremeIdx);
@@ -220,13 +216,13 @@ function detectApproxLegs(opts = {}) {
   };
 }
 
-// tumhara approx V / approx inverted V logic: 10% entry, 30% exit
+// approx V / approx inverted V: 8% entry, 25%+ exit
 function detectApproxVSignal() {
   const info = detectApproxLegs({
-    lookback: 40,
-    minLegPct: 1.5,
-    enterPct: 0.10,
-    exitPct: 0.30
+    lookback: 30,
+    minLegPct: 0.5,
+    enterPct: 0.08,
+    exitPct: 0.25
   });
   if (!info) return null;
 
@@ -439,22 +435,25 @@ const updateHints = () => {
   const approx = detectApproxVSignal();
   if (!approx) {
     vHintEl.textContent =
-      "V strategy: फिलहाल approx V ya inverted V ke liye clear 10%/30% setup nahi; pattern ka wait karo.";
-  } else if (approx.type === "approxV") {
+      "V strategy: abhi approx V / inverted V ke 8–25% zone ke andar clear setup nahi; thoda aur move ka wait.";
+    return;
+  }
+
+  if (approx.type === "approxV") {
     if (approx.state === "entry") {
       vHintEl.textContent =
-        "V strategy: Down leg ke baad low se ~10% ka bounce chal raha hai → yahan se long entry ka zone (approx V).";
+        "V strategy: Down leg complete, low se 8–25% ke beech bounce zone me price hai → yahan long entry ka idea (approx V).";
     } else {
       vHintEl.textContent =
-        "V strategy: Bounce ~30% ke aas-paas aa gaya → yahan long ka profit book/close karne ka zone.";
+        "V strategy: Bounce ~25%+ ho chuka, yahan long ka TP/close ka zone hai (approx V exit).";
     }
   } else {
     if (approx.state === "entry") {
       vHintEl.textContent =
-        "V strategy: Up leg ke baad high se ~10% ka dump chal raha hai → yahan se short entry ka zone (approx inverted V).";
+        "V strategy: Up leg complete, high se 8–25% ke beech dump zone me price hai → yahan short entry ka idea (approx inverted V).";
     } else {
       vHintEl.textContent =
-        "V strategy: Dump ~30% ke aas-paas aa gaya → yahan short ka profit book/close karne ka zone.";
+        "V strategy: Dump ~25%+ ho chuka, yahan short ka TP/close ka zone hai (approx inverted V exit).";
     }
   }
 };
