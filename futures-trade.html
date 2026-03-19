@@ -227,11 +227,11 @@
       <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Futures Order</h2>
         <div class="muted">
-          Market order in USDT-margined perpetuals. Quantity is in coin units (BTC, ETH, etc.). Leverage controls margin & PnL. [web:154][web:156]
+          Market order in USDT-margined perpetuals. Quantity is auto-calculated from USDT amount. [web:163][web:166]
         </div>
 
         <div class="form-row">
-          <input id="qty-input" type="number" step="0.0001" min="0" placeholder="Quantity (e.g. 0.001)" />
+          <input id="qty-input" type="number" step="1" min="0" placeholder="Order value in USDT (e.g. 50)" />
         </div>
         <div class="form-row">
           <select id="lev-select">
@@ -242,7 +242,7 @@
             <option value="50">50x</option>
           </select>
           <span class="muted" id="margin-hint" style="flex:2; font-size:0.8rem;">
-            Margin = qty × price ÷ lev
+            Enter USDT amount, we auto-calc size.
           </span>
         </div>
         <div class="form-row">
@@ -268,7 +268,7 @@
     <section class="card">
       <h2>Futures Wallet</h2>
       <p class="muted" style="margin:0 0 6px;">
-        USDT-M isolated margin · real-time unrealized PnL. [web:156]
+        USDT-M isolated margin · real-time unrealized PnL. [web:167]
       </p>
 
       <div class="balance-grid">
@@ -363,8 +363,7 @@
     const priceHistory    = [];
     const priceStrHistory = [];
 
-    // multiple positions
-    let longPositions  = []; // each: { id, qty, entry, lev, strategy }
+    let longPositions  = []; // { id, qty, entry, lev, strategy }
     let shortPositions = [];
     let nextPosId      = 1;
 
@@ -428,7 +427,7 @@
       totalRoeEl.textContent = roe.toFixed(2) + " %";
     }
 
-    function addFillRow(side, qty, priceStr, strategyTag) {
+    function addFillRow(side, qty, priceStr, strategyTag, extraLabel) {
       if (
         ordersListEl.children.length === 1 &&
         ordersListEl.children[0].querySelector(".muted")
@@ -441,9 +440,10 @@
 
       const left = document.createElement("span");
       const stratText = strategyTag ? ` · [${strategyTag}]` : "";
+      const extra = extraLabel ? ` · ${extraLabel}` : "";
       left.innerHTML =
         `<span class="${side === "long" ? "order-side-long" : "order-side-short"}">` +
-        `${side.toUpperCase()}</span> · ${qty.toFixed(6)} ${currentBaseCoin}${stratText}`;
+        `${side === "long" ? "BUY" : "SELL"}</span> · ${qty.toFixed(6)} ${currentBaseCoin}${stratText}${extra}`;
 
       const right = document.createElement("span");
       right.textContent = currentSymbol + " @ " + priceStr + " USDT";
@@ -725,15 +725,16 @@
     }
 
     function updateMarginPreview() {
-      const qty = parseFloat(qtyInput.value || "0");
+      const amountUsdt = parseFloat(qtyInput.value || "0");
       const lev = parseFloat(levSelect.value || "1");
-      if (!currentPrice || !qty || qty <= 0 || !lev) {
-        marginHintEl.textContent = "Margin = qty × price ÷ lev";
+      if (!currentPrice || !amountUsdt || amountUsdt <= 0 || !lev) {
+        marginHintEl.textContent = "Enter USDT amount, we auto-calc size.";
         return;
       }
+      const qty = amountUsdt / currentPrice;
       const needed = (qty * currentPrice) / lev;
       marginHintEl.textContent =
-        "Required margin (approx): " + fmtUsdtShort(needed) + " USDT";
+        `Size ≈ ${qty.toFixed(6)} ${currentBaseCoin} · Margin ≈ ${fmtUsdtShort(needed)} USDT`;
     }
 
     qtyInput.addEventListener("input", updateMarginPreview);
@@ -745,13 +746,14 @@
         orderMessageEl.textContent = "Price not loaded yet.";
         return;
       }
-      const qty = parseFloat(qtyInput.value);
+      const amountUsdt = parseFloat(qtyInput.value);
       const lev = parseFloat(levSelect.value || "1");
-      if (!qty || qty <= 0) {
-        orderMessageEl.textContent = "Enter a valid quantity.";
+      if (!amountUsdt || amountUsdt <= 0) {
+        orderMessageEl.textContent = "Enter a valid USDT amount.";
         return;
       }
 
+      const qty = amountUsdt / currentPrice;
       const marginNeeded = (qty * currentPrice) / lev;
       const avail        = walletBalance - usedMargin;
       if (marginNeeded > avail) {
@@ -773,7 +775,7 @@
       usedMargin += marginNeeded;
       const lastPriceStr =
         priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-      addFillRow(side, qty, lastPriceStr, (strategyTag || "manual") + ` #${pos.id}`);
+      addFillRow(side, qty, lastPriceStr, (strategyTag || "manual") + ` #${pos.id}`, "opened");
       orderMessageEl.textContent =
         `${side.toUpperCase()} #${pos.id} ${qty.toFixed(6)} ${currentBaseCoin} opened (${strategyTag || "manual"}).`;
 
@@ -790,7 +792,7 @@
       }
 
       if (side === "long" && longPositions.length) {
-        let totalPnl = 0;
+        let msgParts = [];
         longPositions.forEach(pos => {
           const diff   = currentPrice - pos.entry;
           const pnl    = diff * pos.qty * pos.lev;
@@ -799,16 +801,19 @@
           usedMargin    -= margin;
           const lastPriceStr =
             priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-          addFillRow("long", pos.qty, lastPriceStr, (pos.strategy || "close") + ` #${pos.id}`);
-          totalPnl += pnl;
+          const extra = `closed #${pos.id}`;
+          addFillRow("long", pos.qty, lastPriceStr, pos.strategy || "close", extra);
+          msgParts.push(
+            `#${pos.id}: ${(pnl >= 0 ? "+" : "")}${fmtUsdtShort(pnl)} USDT`
+          );
         });
         longPositions = [];
         orderMessageEl.textContent =
-          `ALL LONGS closed · Realized PnL: ${(totalPnl >= 0 ? "+" : "")}${fmtUsdtShort(totalPnl)} USDT`;
+          "Closed LONG positions → " + msgParts.join(" | ");
       }
 
       if (side === "short" && shortPositions.length) {
-        let totalPnl = 0;
+        let msgParts = [];
         shortPositions.forEach(pos => {
           const diff   = pos.entry - currentPrice;
           const pnl    = diff * pos.qty * pos.lev;
@@ -817,12 +822,15 @@
           usedMargin    -= margin;
           const lastPriceStr =
             priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
-          addFillRow("short", pos.qty, lastPriceStr, (pos.strategy || "close") + ` #${pos.id}`);
-          totalPnl += pnl;
+          const extra = `closed #${pos.id}`;
+          addFillRow("short", pos.qty, lastPriceStr, pos.strategy || "close", extra);
+          msgParts.push(
+            `#${pos.id}: ${(pnl >= 0 ? "+" : "")}${fmtUsdtShort(pnl)} USDT`
+          );
         });
         shortPositions = [];
         orderMessageEl.textContent =
-          `ALL SHORTS closed · Realized PnL: ${(totalPnl >= 0 ? "+" : "")}${fmtUsdtShort(totalPnl)} USDT`;
+          "Closed SHORT positions → " + msgParts.join(" | ");
       }
 
       updatePnL();
@@ -868,9 +876,9 @@
         return;
       }
 
-      const qty = parseFloat(qtyInput.value);
-      if (!qty || qty <= 0) {
-        orderMessageEl.textContent = "Enter a valid quantity first.";
+      const amountUsdt = parseFloat(qtyInput.value);
+      if (!amountUsdt || amountUsdt <= 0) {
+        orderMessageEl.textContent = "Enter a valid USDT amount first.";
         return;
       }
 
@@ -914,7 +922,6 @@
     function checkAutoClosePositions() {
       if (!currentPrice) return;
 
-      // Longs
       if (longPositions.length) {
         const remaining = [];
         let msgParts = [];
@@ -928,7 +935,8 @@
             const lastPriceStr =
               priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
             const flag = diffPct >= 0.5 ? "TP" : "SL";
-            addFillRow("long", pos.qty, lastPriceStr, (pos.strategy || "auto") + ` #${pos.id} ${flag}`);
+            const extra = `${flag} #${pos.id}`;
+            addFillRow("long", pos.qty, lastPriceStr, pos.strategy || "auto", extra);
             msgParts.push(`#${pos.id} ${flag} ${pnl >= 0 ? "+" : ""}${fmtUsdtShort(pnl)}`);
           } else {
             remaining.push(pos);
@@ -940,7 +948,6 @@
         }
       }
 
-      // Shorts
       if (shortPositions.length) {
         const remaining = [];
         let msgParts = [];
@@ -954,7 +961,8 @@
             const lastPriceStr =
               priceStrHistory[priceStrHistory.length - 1] || currentPrice.toString();
             const flag = diffPct >= 0.5 ? "TP" : "SL";
-            addFillRow("short", pos.qty, lastPriceStr, (pos.strategy || "auto") + ` #${pos.id} ${flag}`);
+            const extra = `${flag} #${pos.id}`;
+            addFillRow("short", pos.qty, lastPriceStr, pos.strategy || "auto", extra);
             msgParts.push(`#${pos.id} ${flag} ${pnl >= 0 ? "+" : ""}${fmtUsdtShort(pnl)}`);
           } else {
             remaining.push(pos);
@@ -975,12 +983,13 @@
 
       checkAutoClosePositions();
 
-      let qty = parseFloat(qtyInput.value);
-      if (!qty || qty <= 0) {
-        qty = 0.001;
-        qtyInput.value = qty;
+      let amountUsdt = parseFloat(qtyInput.value);
+      if (!amountUsdt || amountUsdt <= 0) {
+        amountUsdt = 50;
+        qtyInput.value = amountUsdt;
         updateMarginPreview();
       }
+      const qty = amountUsdt / currentPrice;
       const lev = parseFloat(levSelect.value || "10");
       const marginNeeded = (qty * currentPrice) / lev;
       const avail = walletBalance - usedMargin;
