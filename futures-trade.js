@@ -164,55 +164,128 @@ const getScalpStats = (windowSize = 20) => {
   return { changePct, avgStep };
 };
 
-// Tuned + smoothed V / inverted V detector
-function detectVPattern(opts = {}) {
-  const windowSize  = opts.windowSize  || 20;
-  const minMovePct  = opts.minMovePct  || 0.0075;
-  const symTolPct   = opts.symTolPct   || 0.003;
-  const minBarsSide = opts.minBarsSide || 3;
+// simple straight-move detector: left leg + right retrace (approx V idea)
+function detectApproxLegs(opts = {}) {
+  const lookback   = opts.lookback || 40;   // past candles
+  const minLegPct  = opts.minLegPct || 1.5; // left leg minimum % move
+  const enterPct   = opts.enterPct || 0.10; // 10% retrace for entry
+  const exitPct    = opts.exitPct  || 0.30; // 30% move for exit
 
   const len = priceHistory.length;
-  if (len < windowSize) return null;
+  if (len < 5) return null;
 
-  const slice = priceHistory.slice(len - windowSize);
+  const startIdx = Math.max(0, len - lookback);
+  const slice = priceHistory.slice(startIdx);
   const n = slice.length;
+  if (n < 5) return null;
 
-  let minIdx = 0, maxIdx = 0;
+  const start = slice[0];
+  const last  = slice[n - 1];
+
+  const movePct = ((last - start) / start) * 100;
+  const trend = movePct > 0 ? "up" : movePct < 0 ? "down" : "flat";
+  if (trend === "flat") return null;
+
+  let extremeIdx = 0;
   for (let i = 1; i < n; i++) {
-    if (slice[i] < slice[minIdx]) minIdx = i;
-    if (slice[i] > slice[maxIdx]) maxIdx = i;
-  }
-
-  const first  = slice[0];
-  const last   = slice[n - 1];
-  const midMin = slice[minIdx];
-  const midMax = slice[maxIdx];
-
-  const centerZone = i => i > n * 0.30 && i < n * 0.70;
-  const hasEnoughBars = idx =>
-    idx >= minBarsSide && (n - 1 - idx) >= minBarsSide;
-
-  if (hasEnoughBars(minIdx) && centerZone(minIdx)) {
-    const leftDrop  = (midMin - first) / first;
-    const rightRise = (last - midMin) / midMin;
-    const vDropOk   = leftDrop <= -minMovePct;
-    const vRiseOk   = rightRise >=  minMovePct;
-    const vSymmetry = Math.abs(Math.abs(leftDrop) - Math.abs(rightRise)) <= symTolPct;
-    if (vDropOk && vRiseOk && vSymmetry) {
-      return { type: "V", direction: "long", strength: Math.abs(leftDrop) + Math.abs(rightRise) };
+    if (trend === "down") {
+      if (slice[i] < slice[extremeIdx]) extremeIdx = i;
+    } else {
+      if (slice[i] > slice[extremeIdx]) extremeIdx = i;
     }
   }
 
-  if (hasEnoughBars(maxIdx) && centerZone(maxIdx)) {
-    const leftRise  = (midMax - first) / first;
-    const rightDrop = (last - midMax) / midMax;
-    const invRiseOk   = leftRise >=  minMovePct;
-    const invDropOk   = rightDrop <= -minMovePct;
-    const invSymmetry = Math.abs(Math.abs(leftRise) - Math.abs(rightDrop)) <= symTolPct;
-    if (invRiseOk && invDropOk && invSymmetry) {
-      return { type: "invertedV", direction: "short", strength: Math.abs(leftRise) + Math.abs(rightDrop) };
+  const leftEnd = slice[extremeIdx];
+
+  const legPct =
+    trend === "down"
+      ? ((leftEnd - start) / start) * 100
+      : ((leftEnd - start) / start) * 100;
+
+  if (Math.abs(legPct) < minLegPct) return null;
+
+  const rest = slice.slice(extremeIdx);
+
+  const legDir = trend === "down" ? "down" : "up";
+
+  return {
+    trend,
+    legDir,
+    start,
+    leftEnd,
+    rest,
+    legPct,
+    enterPct,
+    exitPct
+  };
+}
+
+// tumhara approx V / approx inverted V logic: 10% entry, 30% exit
+function detectApproxVSignal() {
+  const info = detectApproxLegs({
+    lookback: 40,
+    minLegPct: 1.5,
+    enterPct: 0.10,
+    exitPct: 0.30
+  });
+  if (!info) return null;
+
+  const { trend, start, leftEnd, legPct, enterPct, exitPct } = info;
+  const nowPrice = currentPrice;
+  if (!nowPrice) return null;
+
+  // down-trend → approx V (long idea)
+  if (trend === "down") {
+    const fullDrop = Math.abs((leftEnd - start) / start);
+    const enterRetrace = fullDrop * enterPct;
+    const exitRetrace  = fullDrop * exitPct;
+
+    const fromLow = (nowPrice - leftEnd) / leftEnd;
+
+    if (fromLow >= enterRetrace && fromLow < exitRetrace) {
+      return {
+        type: "approxV",
+        direction: "long",
+        state: "entry",
+        strength: Math.abs(legPct)
+      };
+    }
+    if (fromLow >= exitRetrace) {
+      return {
+        type: "approxV",
+        direction: "long",
+        state: "exit",
+        strength: Math.abs(legPct)
+      };
     }
   }
+
+  // up-trend → approx inverted V (short idea)
+  if (trend === "up") {
+    const fullUp = Math.abs((leftEnd - start) / start);
+    const enterRetrace = fullUp * enterPct;
+    const exitRetrace  = fullUp * exitPct;
+
+    const fromHigh = (leftEnd - nowPrice) / leftEnd;
+
+    if (fromHigh >= enterRetrace && fromHigh < exitRetrace) {
+      return {
+        type: "approxInvV",
+        direction: "short",
+        state: "entry",
+        strength: Math.abs(legPct)
+      };
+    }
+    if (fromHigh >= exitRetrace) {
+      return {
+        type: "approxInvV",
+        direction: "short",
+        state: "exit",
+        strength: Math.abs(legPct)
+      };
+    }
+  }
+
   return null;
 }
 
@@ -363,16 +436,26 @@ const updateHints = () => {
   updateScalpRangeHint();
   updateShortLongHints();
 
-  const vRes = detectVPattern();
-  if (!vRes) {
+  const approx = detectApproxVSignal();
+  if (!approx) {
     vHintEl.textContent =
-      "V strategy: फिलहाल clear V ya inverted V nahi dikh raha, pattern ka wait karo.";
-  } else if (vRes.type === "V") {
-    vHintEl.textContent =
-      "V strategy: Fresh V-bottom type pattern, bounce ke liye long side zyada strong lag raha hai.";
+      "V strategy: फिलहाल approx V ya inverted V ke liye clear 10%/30% setup nahi; pattern ka wait karo.";
+  } else if (approx.type === "approxV") {
+    if (approx.state === "entry") {
+      vHintEl.textContent =
+        "V strategy: Down leg ke baad low se ~10% ka bounce chal raha hai → yahan se long entry ka zone (approx V).";
+    } else {
+      vHintEl.textContent =
+        "V strategy: Bounce ~30% ke aas-paas aa gaya → yahan long ka profit book/close karne ka zone.";
+    }
   } else {
-    vHintEl.textContent =
-      "V strategy: Inverted V-top type pattern, dump ke liye short side zyada strong lag raha hai.";
+    if (approx.state === "entry") {
+      vHintEl.textContent =
+        "V strategy: Up leg ke baad high se ~10% ka dump chal raha hai → yahan se short entry ka zone (approx inverted V).";
+    } else {
+      vHintEl.textContent =
+        "V strategy: Dump ~30% ke aas-paas aa gaya → yahan short ka profit book/close karne ka zone.";
+    }
   }
 };
 
@@ -625,13 +708,13 @@ function decideFromSingleStrategy(strategyKey) {
   if (strategyKey === "longTerm") txt = longHintEl.textContent;
 
   if (strategyKey === "vStrategy") {
-    const vRes = detectVPattern();
-    if (!vRes || !vRes.strength || vRes.strength < 0.02) {
+    const approx = detectApproxVSignal();
+    if (!approx || approx.state !== "entry") {
       return null;
     }
     return {
-      side: vRes.direction === "long" ? "long" : "short",
-      tag: vRes.type === "V" ? "V strategy" : "Inverted V strategy"
+      side: approx.direction === "long" ? "long" : "short",
+      tag: approx.type === "approxV" ? "Approx V strategy" : "Approx inverted V"
     };
   }
 
