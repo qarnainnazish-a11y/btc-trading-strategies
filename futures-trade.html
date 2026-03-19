@@ -146,6 +146,29 @@
     .pnl-positive { color: #22c55e; }
     .pnl-negative { color: #ef4444; }
 
+    .live-strategy-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      max-height: 120px;
+      overflow-y: auto;
+      flex: 1 1 160px;
+    }
+    .live-strategy-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #d1d5db;
+    }
+    .live-strategy-item input {
+      flex: 0 0 auto;
+    }
+
     footer {
       text-align: center;
       padding: 10px;
@@ -218,18 +241,41 @@
         <button id="auto-bet-btn" class="btn btn-neutral">Auto Bet</button>
       </div>
 
-      <!-- Live auto trade controls (multi-strategy) -->
+      <!-- Live auto trade controls (checkbox-based selection) -->
       <div class="form-row">
-        <select id="live-strategy" multiple size="6">
-          <option value="auto">Live: Auto (best hint)</option>
-          <option value="scalp">Live: Scalping</option>
-          <option value="scalpVol">Live: Scalping volatility</option>
-          <option value="scalpRange">Live: Scalping range</option>
-          <option value="shortTerm">Live: Short term</option>
-          <option value="longTerm">Live: Long term</option>
-        </select>
-        <button id="start-live-btn" class="btn btn-long">Start Live Auto Trade</button>
-        <button id="stop-live-btn" class="btn btn-neutral">Stop Live Auto</button>
+        <div class="live-strategy-box" id="live-strategy-box">
+          <div class="live-strategy-item">
+            <input type="checkbox" id="live-auto" value="auto" checked />
+            <label for="live-auto">Auto (best hint)</label>
+          </div>
+          <div class="live-strategy-item">
+            <input type="checkbox" id="live-scalp" value="scalp" />
+            <label for="live-scalp">Scalping</label>
+          </div>
+          <div class="live-strategy-item">
+            <input type="checkbox" id="live-scalpVol" value="scalpVol" />
+            <label for="live-scalpVol">Scalping volatility</label>
+          </div>
+          <div class="live-strategy-item">
+            <input type="checkbox" id="live-scalpRange" value="scalpRange" />
+            <label for="live-scalpRange">Scalping range</label>
+          </div>
+          <div class="live-strategy-item">
+            <input type="checkbox" id="live-shortTerm" value="shortTerm" />
+            <label for="live-shortTerm">Short term</label>
+          </div>
+          <div class="live-strategy-item">
+            <input type="checkbox" id="live-longTerm" value="longTerm" />
+            <label for="live-longTerm">Long term</label>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; flex:0 0 180px;">
+          <button id="start-live-btn" class="btn btn-long">Start Live Auto Trade</button>
+          <button id="stop-live-btn" class="btn btn-neutral">Stop Live Auto</button>
+          <span class="muted" style="font-size:0.78rem;">
+            Sirf jinke aage **tick** hai wahi strategy live auto me use hogi.
+          </span>
+        </div>
       </div>
 
       <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
@@ -289,7 +335,7 @@
           <div class="balance-value" id="used-margin">--</div>
         </div>
       </div>
-      <div class="balance-grid" style="margin-top:8px%;">
+      <div class="balance-grid" style="margin-top:8px;">
         <div class="balance-item">
           <div class="balance-label">Available Margin</div>
           <div class="balance-value" id="avail-margin">--</div>
@@ -414,9 +460,10 @@
 
     const autoStrategySelect = document.getElementById("auto-strategy");
     const autoBetBtn         = document.getElementById("auto-bet-btn");
-    const liveStrategySelect = document.getElementById("live-strategy");
     const startLiveBtn       = document.getElementById("start-live-btn");
     const stopLiveBtn        = document.getElementById("stop-live-btn");
+
+    const liveStrategyBox    = document.getElementById("live-strategy-box");
 
     const fmtUsdtShort = x =>
       Number(x).toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -995,10 +1042,13 @@
       updatePnL();
     }
 
-    function getSelectedLiveKeys() {
-      const opts = Array.from(liveStrategySelect.options);
-      const selected = opts.filter(o => o.selected).map(o => o.value);
-      if (!selected.length) return ["auto"];
+    function getCheckedLiveKeys() {
+      const inputs = liveStrategyBox.querySelectorAll("input[type='checkbox']");
+      const selected = [];
+      inputs.forEach(i => {
+        if (i.checked) selected.push(i.value);
+      });
+      if (!selected.length) return []; // kuch select nahi hai
       return selected;
     }
 
@@ -1006,6 +1056,12 @@
       if (!liveAutoEnabled || !currentPrice) return;
 
       checkAutoClosePositions();
+
+      const selectedKeys = getCheckedLiveKeys();
+      if (!selectedKeys.length) {
+        orderMessageEl.textContent = "Live auto: koi strategy tick nahi hai, step skip.";
+        return;
+      }
 
       let amountUsdt = parseFloat(qtyInput.value);
       if (!amountUsdt || amountUsdt <= 0) {
@@ -1022,13 +1078,11 @@
         return;
       }
 
-      const liveKeys = getSelectedLiveKeys();
-
       let votesLong = 0;
       let votesShort = 0;
       let tagsUsed = [];
 
-      for (const key of liveKeys) {
+      for (const key of selectedKeys) {
         let res;
         if (key === "auto") {
           res = decideAutoFromHints();
