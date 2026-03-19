@@ -200,7 +200,7 @@
         </div>
       </h2>
       <div class="muted" style="margin-bottom:4px;">
-        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:152]
+        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:188]
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
@@ -218,9 +218,9 @@
         <button id="auto-bet-btn" class="btn btn-neutral">Auto Bet</button>
       </div>
 
-      <!-- Live auto trade controls -->
+      <!-- Live auto trade controls (multi-strategy) -->
       <div class="form-row">
-        <select id="live-strategy">
+        <select id="live-strategy" multiple size="6">
           <option value="auto">Live: Auto (best hint)</option>
           <option value="scalp">Live: Scalping</option>
           <option value="scalpVol">Live: Scalping volatility</option>
@@ -289,7 +289,7 @@
           <div class="balance-value" id="used-margin">--</div>
         </div>
       </div>
-      <div class="balance-grid" style="margin-top:8px;">
+      <div class="balance-grid" style="margin-top:8px%;">
         <div class="balance-item">
           <div class="balance-label">Available Margin</div>
           <div class="balance-value" id="avail-margin">--</div>
@@ -995,6 +995,13 @@
       updatePnL();
     }
 
+    function getSelectedLiveKeys() {
+      const opts = Array.from(liveStrategySelect.options);
+      const selected = opts.filter(o => o.selected).map(o => o.value);
+      if (!selected.length) return ["auto"];
+      return selected;
+    }
+
     function liveAutoStep() {
       if (!liveAutoEnabled || !currentPrice) return;
 
@@ -1015,24 +1022,40 @@
         return;
       }
 
-      let decision;
-      const liveKey = liveStrategySelect.value || "auto";
+      const liveKeys = getSelectedLiveKeys();
 
-      if (liveKey === "auto") {
-        decision = decideAutoFromHints();
-      } else {
-        decision = decideFromSingleStrategy(liveKey);
+      let votesLong = 0;
+      let votesShort = 0;
+      let tagsUsed = [];
+
+      for (const key of liveKeys) {
+        let res;
+        if (key === "auto") {
+          res = decideAutoFromHints();
+        } else {
+          res = decideFromSingleStrategy(key);
+        }
+        if (!res) continue;
+        if (res.side === "long") votesLong++;
+        if (res.side === "short") votesShort++;
+        if (tagsUsed.indexOf(res.tag) === -1) tagsUsed.push(res.tag);
       }
 
-      if (!decision) {
-        orderMessageEl.textContent =
-          "Live auto: " + (liveKey === "auto"
-            ? "hints me clear direction nahi."
-            : "is live strategy ke hint me clear long/short nahi.");
+      if (votesLong === 0 && votesShort === 0) {
+        orderMessageEl.textContent = "Live auto: selected strategies me clear long/short nahi.";
         return;
       }
 
-      openPosition(decision.side, decision.tag + " (live)");
+      let finalSide;
+      if (votesLong > votesShort) finalSide = "long";
+      else if (votesShort > votesLong) finalSide = "short";
+      else {
+        orderMessageEl.textContent = "Live auto: strategies equal long vs short, skip step.";
+        return;
+      }
+
+      const tag = "Live " + tagsUsed.join("+");
+      openPosition(finalSide, tag);
     }
 
     startLiveBtn.addEventListener("click", () => {
