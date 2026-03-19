@@ -154,7 +154,7 @@
       border-radius: 8px;
       border: 1px solid #1f2937;
       background: #020617;
-      max-height: 120px;
+      max-height: 140px;
       overflow-y: auto;
       flex: 1 1 160px;
     }
@@ -223,7 +223,7 @@
         </div>
       </h2>
       <div class="muted" style="margin-bottom:4px;">
-        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:188]
+        Paste TradingView link or type symbol. “.P” → Binance futures price, else spot symbol. [web:228]
       </div>
       <div id="price" class="price">--</div>
       <div class="muted" id="price-updated">Fetching...</div>
@@ -237,6 +237,7 @@
           <option value="scalpRange">Scalping range</option>
           <option value="shortTerm">Short term</option>
           <option value="longTerm">Long term</option>
+          <option value="vStrategy">V strategy</option>
         </select>
         <button id="auto-bet-btn" class="btn btn-neutral">Auto Bet</button>
       </div>
@@ -268,12 +269,16 @@
             <input type="checkbox" id="live-longTerm" value="longTerm" />
             <label for="live-longTerm">Long term</label>
           </div>
+          <div class="live-strategy-item">
+            <input type="checkbox" id="live-vStrategy" value="vStrategy" />
+            <label for="live-vStrategy">V strategy</label>
+          </div>
         </div>
-        <div style="display:flex; flex-direction:column; gap:6px; flex:0 0 180px;">
+        <div style="display:flex; flex-direction:column; gap:6px; flex:0 0 190px;">
           <button id="start-live-btn" class="btn btn-long">Start Live Auto Trade</button>
           <button id="stop-live-btn" class="btn btn-neutral">Stop Live Auto</button>
           <span class="muted" style="font-size:0.78rem;">
-            Sirf jinke aage tick hai wahi strategy live auto me use hogi.
+            Sirf jinke aage tick hai wahi strategy live auto me use hogi (V strategy bhi). [web:234]
           </span>
         </div>
       </div>
@@ -281,7 +286,7 @@
       <div style="margin-top:16px; border-top:1px solid #1f2937; padding-top:10px;">
         <h2 style="border-bottom:none; padding-bottom:0; margin-bottom:4px;">Futures Order</h2>
         <div class="muted">
-          Market order in USDT-margined perpetuals. Quantity is auto-calculated from USDT amount. [web:163][web:220]
+          Market order in USDT-margined perpetuals. Quantity is auto-calculated from USDT amount. [web:220]
         </div>
 
         <div class="form-row">
@@ -315,6 +320,10 @@
         <div class="muted" id="scalp-range-hint">Scalping (range): waiting for range data…</div>
         <div class="muted" id="short-hint">Short-term: waiting for data…</div>
         <div class="muted" id="long-hint">Long-term: waiting for data…</div>
+        <div class="muted" id="v-hint">
+          V strategy: recent price me sharp V bottom ya inverted V top detect hote hi
+          bounce ke liye long ya dump ke liye short ka signal deta hai (fast reversal). [web:229][web:235]
+        </div>
       </div>
     </section>
 
@@ -345,7 +354,7 @@
           <div class="balance-value" id="total-pnl">--</div>
         </div>
       </div>
-      <div class="balance-item" style="margin-top:8px;">
+      <div class="balance-item" style="margin-top:8px%;">
         <div class="balance-label">ROE (on used margin)</div>
         <div class="balance-value" id="total-roe">--</div>
       </div>
@@ -452,6 +461,7 @@
     const scalpRangeHintEl = document.getElementById("scalp-range-hint");
     const shortHintEl      = document.getElementById("short-hint");
     const longHintEl       = document.getElementById("long-hint");
+    const vHintEl          = document.getElementById("v-hint");
 
     const symbolSelect    = document.getElementById("symbol-select");
     const pairTitle       = document.getElementById("pair-title");
@@ -514,6 +524,8 @@
       scalpRangeHintEl.textContent = "Scalping (range): waiting for range data…";
       shortHintEl.textContent      = "Short-term: waiting for data…";
       longHintEl.textContent       = "Long-term: waiting for data…";
+      vHintEl.textContent =
+        "V strategy: recent price me sharp V bottom ya inverted V top detect hote hi bounce/dump reversal ka idea deta hai.";      
     };
 
     const getChangePct = windowSize => {
@@ -544,6 +556,49 @@
       const avgStep = sumAbs / (slice.length - 1);
       return { changePct, avgStep };
     };
+
+    // Simple V / inverted V detector on last N candles
+    function detectVPattern(windowSize = 15, tolerance = 0.002) {
+      const len = priceHistory.length;
+      if (len < windowSize) return null;
+      const slice = priceHistory.slice(len - windowSize);
+      const n = slice.length;
+
+      let minIdx = 0, maxIdx = 0;
+      for (let i = 1; i < n; i++) {
+        if (slice[i] < slice[minIdx]) minIdx = i;
+        if (slice[i] > slice[maxIdx]) maxIdx = i;
+      }
+
+      const first = slice[0];
+      const midMin = slice[minIdx];
+      const last = slice[n - 1];
+
+      const leftDrop  = (midMin - first) / first;
+      const rightRise = (last - midMin) / midMin;
+
+      const vDropOk   = leftDrop <= -0.005;
+      const vRiseOk   = rightRise >= 0.005;
+      const vSymmetry = Math.abs(Math.abs(leftDrop) - Math.abs(rightRise)) <= tolerance;
+
+      const midMax = slice[maxIdx];
+      const leftRise2  = (midMax - first) / first;
+      const rightDrop2 = (last - midMax) / midMax;
+
+      const invRiseOk   = leftRise2 >= 0.005;
+      const invDropOk   = rightDrop2 <= -0.005;
+      const invSymmetry = Math.abs(Math.abs(leftRise2) - Math.abs(rightDrop2)) <= tolerance;
+
+      const centerZone = i => i > n * 0.25 && i < n * 0.75;
+
+      if (vDropOk && vRiseOk && vSymmetry && centerZone(minIdx)) {
+        return { type: "V", direction: "long" };
+      }
+      if (invRiseOk && invDropOk && invSymmetry && centerZone(maxIdx)) {
+        return { type: "invertedV", direction: "short" };
+      }
+      return null;
+    }
 
     const updateScalpHintBasic = () => {
       const scalpChange = getChangePct(15);
@@ -691,6 +746,18 @@
       updateScalpVolHint();
       updateScalpRangeHint();
       updateShortLongHints();
+
+      const vRes = detectVPattern();
+      if (!vRes) {
+        vHintEl.textContent =
+          "V strategy: फिलहाल clear V ya inverted V nahi dikh raha, pattern ka wait karo.";
+      } else if (vRes.type === "V") {
+        vHintEl.textContent =
+          "V strategy: Fresh V-bottom type pattern, bounce ke liye long side zyada strong lag raha hai.";
+      } else {
+        vHintEl.textContent =
+          "V strategy: Inverted V-top type pattern, dump ke liye short side zyada strong lag raha hai.";
+      }
     };
 
     async function fetchPrice() {
@@ -941,6 +1008,15 @@
       if (strategyKey === "shortTerm") txt = shortHintEl.textContent;
       if (strategyKey === "longTerm") txt = longHintEl.textContent;
 
+      if (strategyKey === "vStrategy") {
+        const vRes = detectVPattern();
+        if (!vRes) return null;
+        return {
+          side: vRes.direction === "long" ? "long" : "short",
+          tag: vRes.type === "V" ? "V strategy" : "Inverted V strategy"
+        };
+      }
+
       const side = pickSideFromText(txt);
       if (!side) return null;
 
@@ -949,7 +1025,8 @@
         scalpVol: "Scalping vol",
         scalpRange: "Scalping range",
         shortTerm: "Short term",
-        longTerm: "Long term"
+        longTerm: "Long term",
+        vStrategy: "V strategy"
       };
       return { side, tag: map[strategyKey] || "auto" };
     }
@@ -980,7 +1057,7 @@
       } else {
         const res = decideFromSingleStrategy(selected);
         if (!res) {
-          orderMessageEl.textContent = "Is strategy ke hint me clear long/short nahi; auto bet skip.";
+          orderMessageEl.textContent = "Is strategy (including V strategy) me clear signal nahi; auto bet skip.";
           return;
         }
         side = res.side;
